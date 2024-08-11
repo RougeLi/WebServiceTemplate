@@ -1,0 +1,84 @@
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:unicorn/recommended",
+    "plugin:import/errors",
+    "plugin:import/warnings",
+    "plugin:import/typescript"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": "./tsconfig.json"
+  },
+  "plugins": [
+    "unicorn",
+    "@typescript-eslint",
+    "import"
+  ],
+  "env": {
+    "es2024": true
+  },
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "rules": {
+    "no-return-await": "off",
+    "unicorn/prefer-top-level-await": "off",
+    "@typescript-eslint/return-await": [
+      "error",
+      "always"
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          "../../../*"
+        ]
+      }
+    ],
+    "unicorn/filename-case": [
+      "error",
+      {
+        "case": "kebabCase",
+        "ignore": [
+          "^\\d{13}-\\w+\\.ts$"
+        ]
+      }
+    ],
+    "import/order": [
+      "error",
+      {
+        "groups": [
+          [
+            "builtin",
+            "external",
+            "internal"
+          ]
+        ],
+        "pathGroups": [
+          {
+            "pattern": "src/**",
+            "group": "internal"
+          }
+        ],
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ],
+    "import/no-unresolved": "error"
+  },
+  "overrides": [
+    {
+      "files": ["*.spec.ts"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off",
+        "unicorn/prefer-module": "off"
+      }
+    }
+  ]
+}

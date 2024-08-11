@@ -1,0 +1,50 @@
+{
+  "name": "web-service-template",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "install:ci": "pnpm install --frozen-lockfile",
+    "install:dev": "pnpm install --no-frozen-lockfile",
+    "build": "tsc -p tsconfig.json",
+    "build:watch": "npm run build -- --watch",
+    "start": "concurrently -n \"TS,Server\" -c \"yellow.bold,green.bold\" \"npm run build:watch\" \"npm run run:watch\"",
+    "run:watch": "cross-env NODE_PATH=./build node --watch-path=./build --enable-source-maps build/index.js",
+    "prettier:check": "prettier --check \"**/*.{ts,js}\"",
+    "prettier:fix": "prettier --write \"**/*.{ts,js}\"",
+    "type:check": "tsc --noEmit",
+    "lint": "npm run type:check && npm run prettier:check && npm run lint:code",
+    "lint:code": "eslint \"./**/*.{js,ts}\" --quiet",
+    "lint:fix": "npm run prettier:fix && npm run lint:code -- --fix",
+    "pretest": "npm run lint",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [],
+  "author": "Ru <banagher.links448@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "awilix": "^10.0.2",
+    "close-with-grace": "^1.3.0",
+    "dotenv": "^16.4.5",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.1",
+    "@typescript-eslint/parser": "^8.0.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.x.x",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-unicorn": "^55.0.0",
+    "jest": "^29.7.0",
+    "pino-pretty": "^11.2.2",
+    "prettier": "^3.3.3",
+    "ts-jest": "^29.2.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}

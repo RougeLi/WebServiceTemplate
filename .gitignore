@@ -1,0 +1,15 @@
+# Coverage directory used by tools like Istanbul
+coverage/
+
+# Dependency directories
+node_modules/
+
+# Build directories
+build/
+
+# dotenv environment variable files
+.env
+
+# IDE and editor directories
+.idea/
+.vscode/
