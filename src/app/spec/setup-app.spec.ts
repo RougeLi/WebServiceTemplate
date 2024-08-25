@@ -1,6 +1,6 @@
 import { asValue } from 'awilix';
-import Application from './application';
-import setupApp from './setup-app';
+import Application from '../application';
+import setupApp from '../setup-app';
 
 jest.mock('src/modules', () => ({
   __esModule: true,

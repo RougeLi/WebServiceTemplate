@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { loadEnvironment } from './load-environment';
+import { loadEnvironment } from 'src/config/load-environment';
 
 jest.mock('dotenv');
 

@@ -2,7 +2,7 @@ import { AwilixContainer, createContainer, asClass } from 'awilix';
 import { AppConfigType } from 'src/config/app-config.types';
 import { EnvironmentService } from 'src/config/environment.service';
 import ContainerTokens from 'src/global/container-tokens';
-import Application from './application';
+import Application from '../application';
 
 describe('Application', () => {
   let container: AwilixContainer;

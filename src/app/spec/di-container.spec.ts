@@ -1,5 +1,5 @@
 import { createContainer, AwilixContainer } from 'awilix';
-import { initializeContainer, diContainer } from './di-container';
+import { initializeContainer, diContainer } from '../di-container';
 
 describe('DI Container', () => {
   let container: AwilixContainer;
