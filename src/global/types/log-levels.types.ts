@@ -1,4 +1,3 @@
-// noinspection JSUnusedGlobalSymbols
 export enum LogLevels {
   TRACE = 'trace',
   DEBUG = 'debug',

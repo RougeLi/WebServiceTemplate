@@ -15,7 +15,7 @@ const config: Config = {
     'web-server.ts',
     'global-containers.ts',
     'modules.ts',
-    'swagger.config.ts',
+    String.raw`.*\.config\.ts$`,
     String.raw`.*\.types\.ts$`,
   ],
   coverageProvider: 'v8',

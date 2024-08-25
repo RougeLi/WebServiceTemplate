@@ -1,7 +1,8 @@
 import { LoggerOptions } from 'pino';
 import { Environment } from 'src/global/types/environment.types';
 
-const defaultLogger = {
+const developmentLogger: LoggerOptions = {
+  level: 'debug',
   transport: {
     target: 'pino-pretty',
     options: {
@@ -11,8 +12,27 @@ const defaultLogger = {
   },
 };
 
+const stagingLogger: LoggerOptions = {
+  level: 'info',
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
+  },
+};
+
+const productionLogger: LoggerOptions = {
+  level: 'warn',
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
+  },
+  redact: ['req.headers.authorization'],
+};
+
 export const LoggerConfig: Record<Environment, LoggerOptions> = {
-  [Environment.DEVELOPMENT]: defaultLogger,
-  [Environment.STAGING]: defaultLogger,
-  [Environment.PRODUCTION]: defaultLogger,
+  [Environment.DEVELOPMENT]: developmentLogger,
+  [Environment.STAGING]: stagingLogger,
+  [Environment.PRODUCTION]: productionLogger,
 };
