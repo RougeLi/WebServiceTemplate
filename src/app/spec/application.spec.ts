@@ -1,29 +1,36 @@
-import { AwilixContainer, createContainer, asClass } from 'awilix';
+import { AwilixContainer } from 'awilix';
 import { AppConfigType } from 'src/config/app-config.types';
 import { EnvironmentService } from 'src/config/environment.service';
 import ContainerTokens from 'src/global/container-tokens';
+import { getTestContainer } from 'tests/container.mock';
 import Application from '../application';
+
+jest.mock('src/server/web-server');
+
+const mockWebInstance = {
+  listen: jest.fn(),
+};
 
 describe('Application', () => {
   let container: AwilixContainer;
+  let environmentService: Partial<EnvironmentService>;
   let application: Application;
   let logSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    container = createContainer();
+    container = getTestContainer();
 
-    container.register(
-      ContainerTokens.APP_CONFIG,
-      asClass(EnvironmentService).singleton(),
-    );
-
-    const environmentService = container.resolve<EnvironmentService>(
+    environmentService = container.resolve<EnvironmentService>(
       ContainerTokens.APP_CONFIG,
     );
 
-    const appConfigType = { appName: 'TestApp' } as AppConfigType;
+    jest.spyOn(environmentService, 'getConfig').mockReturnValue({
+      appName: 'TestApp',
+      appPort: 3000,
+    } as AppConfigType);
 
-    jest.spyOn(environmentService, 'getConfig').mockReturnValue(appConfigType);
+    const createWeb = require('src/server/web-server').default;
+    createWeb.mockReturnValue(mockWebInstance);
 
     application = new Application(container);
     logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -31,18 +38,24 @@ describe('Application', () => {
 
   afterEach(() => {
     logSpy.mockRestore();
+    jest.clearAllMocks();
   });
 
   it('should initialize without errors', async () => {
     await expect(application.initialize()).resolves.not.toThrow();
+    expect(logSpy).toHaveBeenCalledWith('Application initialization started');
+    expect(logSpy).toHaveBeenCalledWith(
+      'Application configuration successfully loaded:',
+      JSON.stringify({ appName: 'TestApp', appPort: 3000 }, undefined, 2),
+    );
   });
 
   it('should start and log the application configuration', async () => {
     await application.start();
     expect(logSpy).toHaveBeenCalledWith('Application starting...');
-    expect(logSpy).toHaveBeenCalledWith(
-      'Application configuration successfully loaded:',
-      JSON.stringify({ appName: 'TestApp' }, undefined, 2),
-    );
+    expect(mockWebInstance.listen).toHaveBeenCalledWith({
+      host: '::',
+      port: 3000,
+    });
   });
 });

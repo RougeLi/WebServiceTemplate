@@ -1,6 +1,6 @@
 import { diContainer } from '@fastify/awilix';
-import { AwilixContainer } from 'awilix';
-import { loadEnvironment } from 'src/config';
+import { loadEnvironment } from 'src/config/load-environment';
+import { AppContainer } from 'src/global/types/framework.types';
 import globalContainers from 'src/global-containers';
 import modules from 'src/modules';
 import { IApplication } from './app.types';
@@ -19,14 +19,14 @@ async function setupApp(): Promise<IApplication> {
   return new Application(container);
 }
 
-function registerContainers(container: AwilixContainer): void {
+function registerContainers(container: AppContainer): void {
   for (const globalContainer of globalContainers) {
     const [name, registration] = globalContainer;
     container.register(name, registration);
   }
 }
 
-function registerModules(container: AwilixContainer): void {
+function registerModules(container: AppContainer): void {
   for (const module of modules) {
     const registrations = module.registerDependencies();
     for (const { name, registration } of registrations) {
