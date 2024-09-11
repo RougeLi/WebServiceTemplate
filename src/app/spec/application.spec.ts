@@ -21,7 +21,7 @@ describe('Application', () => {
     container = getTestContainer();
 
     environmentService = container.resolve<EnvironmentService>(
-      ContainerTokens.APP_CONFIG,
+      ContainerTokens.ENVIRONMENT_SERVICE,
     );
 
     jest.spyOn(environmentService, 'getConfig').mockReturnValue({

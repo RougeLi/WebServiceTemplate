@@ -1,5 +1,5 @@
 enum ContainerTokens {
-  APP_CONFIG = 'appConfig',
+  ENVIRONMENT_SERVICE = 'environmentService',
   LOGGER = 'logger',
 }
 

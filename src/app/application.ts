@@ -13,7 +13,7 @@ export default class Application implements IApplication {
 
   constructor(private readonly container: AppContainer) {
     this.environmentService = this.container.resolve<EnvironmentService>(
-      ContainerTokens.APP_CONFIG,
+      ContainerTokens.ENVIRONMENT_SERVICE,
     );
     this.config = this.environmentService.getConfig();
 

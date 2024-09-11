@@ -5,7 +5,10 @@ import { EnvironmentService } from './config/environment.service';
 import ContainerTokens from './global/container-tokens';
 
 const globalContainers: ContainerRegistrationTypes = [
-  [ContainerTokens.APP_CONFIG, asClass(EnvironmentService).singleton()],
+  [
+    ContainerTokens.ENVIRONMENT_SERVICE,
+    asClass(EnvironmentService).singleton(),
+  ],
   [ContainerTokens.LOGGER, asClass(LoggerService).singleton()],
 ];
 
