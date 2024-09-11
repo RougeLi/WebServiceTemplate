@@ -12,6 +12,7 @@ const config: Config = {
   coveragePathIgnorePatterns: [
     '/node_modules/',
     'index.ts',
+    'setup-app.ts',
     'web-server.ts',
     'global-containers.ts',
     'modules.ts',
