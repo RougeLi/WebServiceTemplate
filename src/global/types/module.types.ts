@@ -1,4 +1,5 @@
-import { AwilixContainer, Resolver } from 'awilix';
+import { Resolver } from 'awilix';
+import { AppContainer, WebServer } from 'src/global/types/framework.types';
 
 /**
  * DependencyRegistration type defines the structure for registering a dependency,
@@ -22,7 +23,8 @@ export default interface IModule {
 
   /**
    * The registerRoutes method is used to register the routes associated with the module.
-   * @param container AwilixContainer - The DI container used to resolve the required dependencies.
+   * @param container AppContainer - The DI container.
+   * @param webServer WebServer - The web server used to register the routes.
    */
-  registerRoutes: (container: AwilixContainer) => void;
+  registerRoutes: (container: AppContainer, webServer: WebServer) => void;
 }

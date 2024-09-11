@@ -1,6 +1,9 @@
+import { fastifyAwilixPlugin } from '@fastify/awilix';
+import helmet from '@fastify/helmet';
 import fastifyRequestContext from '@fastify/request-context';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify from 'fastify';
 import { AppConfigType } from 'src/config/app-config.types';
 import { EnvironmentService } from 'src/config/environment.service';
@@ -18,17 +21,16 @@ import {
 } from 'src/server/swagger/swagger.config';
 import { WebError } from 'src/server/web.error';
 
-function createWeb(container: AppContainer, config: AppConfigType): WebServer {
+async function createWeb(
+  container: AppContainer,
+  config: AppConfigType,
+): Promise<WebServer> {
   const webServer = Fastify({
     logger: LoggerConfig[config.appEnv],
     genReqId: generateRequestId,
   });
 
-  webServer.register(fastifyRequestContext);
-  webServer.addHook('onRequest', (request, _reply, done) => {
-    request.requestContext.set('logger', request.log);
-    done();
-  });
+  webServer.withTypeProvider<TypeBoxTypeProvider>();
 
   const logger = container.resolve<LoggerService>(ContainerTokens.LOGGER);
   logger.init(webServer.log);
@@ -40,6 +42,22 @@ function createWeb(container: AppContainer, config: AppConfigType): WebServer {
   const replyHandler = new ReplyHandler();
   const errorLoggerHandler = new ErrorLoggerHandler(logger, environmentService);
 
+  // Register Plugins
+  await webServer.register(fastifyAwilixPlugin, {
+    disposeOnClose: true,
+    disposeOnResponse: true,
+  });
+
+  await webServer.register(helmet);
+  await webServer.register(fastifyRequestContext);
+
+  // Set request-specific logger
+  webServer.addHook('onRequest', (request, _reply, done) => {
+    request.requestContext.set('logger', request.log);
+    done();
+  });
+
+  // Error handling
   webServer.setErrorHandler((error: Error, _request, reply) => {
     if (error instanceof WebError) {
       errorLoggerHandler.logError(error);
@@ -50,9 +68,10 @@ function createWeb(container: AppContainer, config: AppConfigType): WebServer {
     replyHandler.handleInternalError(reply);
   });
 
+  // Swagger setup for non-production environments
   if (config.appEnv !== Environment.PRODUCTION) {
-    webServer.register(swagger, getSwaggerConfig(config));
-    webServer.register(swaggerUi, getSwaggerUiConfig());
+    await webServer.register(swagger, getSwaggerConfig(config));
+    await webServer.register(swaggerUi, getSwaggerUiConfig());
   }
 
   return webServer;

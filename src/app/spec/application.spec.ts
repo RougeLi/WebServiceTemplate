@@ -51,6 +51,7 @@ describe('Application', () => {
   });
 
   it('should start and log the application configuration', async () => {
+    await application.initialize();
     await application.start();
     expect(logSpy).toHaveBeenCalledWith('Application starting...');
     expect(mockWebInstance.listen).toHaveBeenCalledWith({

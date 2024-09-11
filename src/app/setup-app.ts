@@ -1,4 +1,4 @@
-import { diContainer } from '@fastify/awilix';
+import { diContainerClassic } from '@fastify/awilix';
 import { loadEnvironment } from 'src/config/load-environment';
 import { AppContainer } from 'src/global/types/framework.types';
 import globalContainers from 'src/global-containers';
@@ -10,7 +10,7 @@ import { initializeContainer } from './di-container';
 async function setupApp(): Promise<IApplication> {
   loadEnvironment();
 
-  const container = initializeContainer(diContainer);
+  const container = initializeContainer(diContainerClassic);
 
   registerContainers(container);
 

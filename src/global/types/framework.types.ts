@@ -1,5 +1,5 @@
 import { AwilixContainer } from 'awilix';
-import fastify from 'fastify';
+import { FastifyInstance } from 'fastify';
 
 export type AppContainer = AwilixContainer;
-export type WebServer = ReturnType<typeof fastify>;
+export type WebServer = FastifyInstance;

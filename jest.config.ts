@@ -16,6 +16,7 @@ const config: Config = {
     'web-server.ts',
     'global-containers.ts',
     'modules.ts',
+    String.raw`.*\.module\.ts$`,
     String.raw`.*\.config\.ts$`,
     String.raw`.*\.types\.ts$`,
   ],
