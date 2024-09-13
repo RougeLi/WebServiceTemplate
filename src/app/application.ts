@@ -1,7 +1,7 @@
 import { AppConfigType } from 'src/config/app-config.types';
 import ContainerTokens from 'src/global/container-tokens';
 import { AppContainer, WebServer } from 'src/global/types/framework.types';
-import { registerModulesRoutes } from 'src/modules';
+import { registerRoutes } from 'src/server/handlers/route.handler';
 import createWeb from 'src/server/web-server';
 import { IApplication } from './app.types';
 import { EnvironmentService } from '../config/environment.service';
@@ -25,7 +25,7 @@ export default class Application implements IApplication {
       JSON.stringify(this.config, undefined, 2),
     );
     this.webServer = await createWeb(this.container, this.config);
-    registerModulesRoutes(this.container, this.webServer);
+    registerRoutes(this.container, this.webServer);
   }
 
   async start(): Promise<void> {

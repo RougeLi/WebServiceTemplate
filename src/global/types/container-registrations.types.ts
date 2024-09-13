@@ -1,8 +1,14 @@
-import { Resolver } from 'awilix';
 import ContainerTokens from 'src/global/container-tokens';
+import { DependencyResolver } from './framework.types';
 
-type ContainerRegistrationType = [ContainerTokens, Resolver<unknown>];
+/**
+ * ContainerRegistration is a tuple representing the registration of a token and its resolver.
+ */
+type ContainerRegistration = [ContainerTokens, DependencyResolver];
 
-type ContainerRegistrationTypes = ContainerRegistrationType[];
+/**
+ * ContainerRegistrations defines an array of all container registrations.
+ */
+type ContainerRegistrations = ContainerRegistration[];
 
-export default ContainerRegistrationTypes;
+export default ContainerRegistrations;

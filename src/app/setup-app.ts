@@ -21,16 +21,16 @@ async function setupApp(): Promise<IApplication> {
 
 function registerContainers(container: AppContainer): void {
   for (const globalContainer of globalContainers) {
-    const [name, registration] = globalContainer;
-    container.register(name, registration);
+    const [token, resolver] = globalContainer;
+    container.register(token, resolver);
   }
 }
 
 function registerModules(container: AppContainer): void {
   for (const module of modules) {
-    const registrations = module.registerDependencies();
-    for (const { name, registration } of registrations) {
-      container.register(name, registration);
+    const registrations = module.getRegisterDependencies();
+    for (const [token, resolver] of registrations) {
+      container.register(token, resolver);
     }
   }
 }
