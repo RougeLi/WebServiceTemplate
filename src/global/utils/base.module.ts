@@ -1,4 +1,3 @@
-import { asClass } from 'awilix';
 import {
   ClassType,
   InjectionResolverMode,
@@ -7,6 +6,7 @@ import {
   DependencyRegistrations,
   IModule,
 } from 'src/global/types/module.types';
+import { makeDependencyRegistration } from 'src/global/utils/di-registration-factory';
 import { registerRouteToken } from 'src/server/handlers/route.handler';
 
 /**
@@ -57,41 +57,9 @@ export abstract class BaseModule implements IModule {
   ): this {
     registerRouteToken(InjectionToken, classType);
 
-    switch (injectionMode) {
-      case InjectionResolverMode.SINGLETON:
-        this.dependencyRegistrations.push([
-          InjectionToken,
-          asClass(classType).singleton(),
-        ]);
-        break;
-      case InjectionResolverMode.SCOPED:
-        this.dependencyRegistrations.push([
-          InjectionToken,
-          asClass(classType).scoped(),
-        ]);
-        break;
-      case InjectionResolverMode.TRANSIENT:
-        this.dependencyRegistrations.push([
-          InjectionToken,
-          asClass(classType).transient(),
-        ]);
-        break;
-      case InjectionResolverMode.PROXY:
-        this.dependencyRegistrations.push([
-          InjectionToken,
-          asClass(classType).proxy(),
-        ]);
-        break;
-      case InjectionResolverMode.CLASSIC:
-        this.dependencyRegistrations.push([
-          InjectionToken,
-          asClass(classType).classic(),
-        ]);
-        break;
-      default:
-        this.dependencyRegistrations.push([InjectionToken, asClass(classType)]);
-        break;
-    }
+    this.dependencyRegistrations.push(
+      makeDependencyRegistration(InjectionToken, classType, injectionMode),
+    );
 
     return this;
   }

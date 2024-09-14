@@ -11,7 +11,7 @@ type InjectionToken = string;
  * with a DependencyResolver.
  * This tuple is used to register a service in the DI container.
  */
-type DependencyRegistration = [InjectionToken, DependencyResolver];
+export type DependencyRegistration = [InjectionToken, DependencyResolver];
 
 /**
  * DependencyRegistrations defines an array of DependencyRegistration tuples.

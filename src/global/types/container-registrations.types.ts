@@ -4,7 +4,7 @@ import { DependencyResolver } from './framework.types';
 /**
  * ContainerRegistration is a tuple representing the registration of a token and its resolver.
  */
-type ContainerRegistration = [ContainerTokens, DependencyResolver];
+export type ContainerRegistration = [ContainerTokens, DependencyResolver];
 
 /**
  * ContainerRegistrations defines an array of all container registrations.
