@@ -1,0 +1,18 @@
+services:
+  app:
+    container_name: hello-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:3000"
+    environment:
+      APP_NAME: hello-module
+      APP_ENV: staging
+      DATABASE_URL: postgresql://appUser:appPassword@app-db:5432/app_db
+    networks:
+      - dev-app-projects_default
+
+networks:
+  dev-app-projects_default:
+    external: true
