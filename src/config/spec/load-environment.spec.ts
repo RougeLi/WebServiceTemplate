@@ -4,8 +4,15 @@ import { loadEnvironment } from 'src/config/load-environment';
 jest.mock('dotenv');
 
 describe('loadEnvironment', () => {
+  let consoleLogSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
   });
 
   it('should load environment variables successfully', () => {
@@ -14,6 +21,9 @@ describe('loadEnvironment', () => {
 
     expect(() => loadEnvironment()).not.toThrow();
     expect(dotenv.config).toHaveBeenCalled();
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Environment variables loaded from .env file',
+    );
   });
 
   it('should throw an error if dotenv.config fails', () => {
@@ -23,6 +33,7 @@ describe('loadEnvironment', () => {
 
     expect(() => loadEnvironment()).toThrow(mockError);
     expect(dotenv.config).toHaveBeenCalled();
+    expect(consoleLogSpy).not.toHaveBeenCalled();
   });
 
   it('should skip .env loading if running inside Docker', () => {
@@ -30,6 +41,9 @@ describe('loadEnvironment', () => {
 
     expect(() => loadEnvironment()).not.toThrow();
     expect(dotenv.config).not.toHaveBeenCalled();
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Running inside Docker, skipping .env loading',
+    );
 
     delete process.env.IS_DOCKER;
   });
