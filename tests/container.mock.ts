@@ -4,7 +4,7 @@ import { getEnvironmentServiceMock } from './environment.mock';
 import { getLoggerServiceMock } from './logger.mock';
 
 export const getTestContainer = (): AwilixContainer => {
-  const container = createContainer();
+  const container = createContainer({ injectionMode: 'CLASSIC' });
 
   container.register(
     ContainerTokens.ENVIRONMENT_SERVICE,
