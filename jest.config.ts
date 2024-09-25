@@ -22,6 +22,7 @@ const config: Config = {
     String.raw`.*\.config\.ts$`,
     String.raw`.*\.types\.ts$`,
     String.raw`.*\.dto\.ts$`,
+    String.raw`.*\.error\.ts$`,
   ],
   coverageProvider: 'v8',
   coverageThreshold: {
