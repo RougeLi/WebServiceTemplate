@@ -1,6 +1,7 @@
 import { SwaggerOptions } from '@fastify/swagger';
 import { FastifySwaggerUiOptions } from '@fastify/swagger-ui';
 import { AppConfigType } from 'src/config/app-config.types';
+import { SecuritySchemes } from 'src/server/types/swagger.types';
 
 export const getSwaggerUiConfig = (): FastifySwaggerUiOptions => ({
   routePrefix: '/docs',
@@ -12,19 +13,19 @@ export const getSwaggerUiConfig = (): FastifySwaggerUiOptions => ({
 });
 
 export const getSwaggerConfig = (config: AppConfigType): SwaggerOptions => {
-  const securitySchemes: Record<string, { [key: string]: string }> = {};
+  const securitySchemes: SecuritySchemes = {};
 
   if (config.serviceToken) {
     securitySchemes['ServiceAuth'] = {
-      type: 'serviceKey',
-      description: 'Service APIs signature',
-      name: 'x-signature',
+      type: 'apiKey',
+      description: 'Service APIs Authorization',
+      name: 'service-token',
       in: 'header',
     };
   }
 
   securitySchemes['BearerAuth'] = {
-    type: 'jwt',
+    type: 'http',
     description: 'JWT Authorization',
     scheme: 'bearer',
     bearerFormat: 'JWT',
