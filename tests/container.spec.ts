@@ -1,7 +1,7 @@
 import { asValue, AwilixContainer, createContainer } from 'awilix';
 import ContainerTokens from 'src/global/container-tokens';
-import { getEnvironmentServiceMock } from './environment.mock';
-import { getLoggerServiceMock } from './logger.mock';
+import { getEnvironmentServiceMock } from './environment.spec';
+import { getLoggerServiceMock } from './logger.spec';
 
 export const getTestContainer = (): AwilixContainer => {
   const container = createContainer({ injectionMode: 'CLASSIC' });

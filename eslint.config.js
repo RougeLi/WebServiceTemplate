@@ -1,6 +1,13 @@
 module.exports = [
   {
-    ignores: ['coverage', 'node_modules/', 'build'],
+    ignores: [
+      'coverage',
+      'node_modules',
+      'build',
+      '**/*.spec.ts',
+      'eslint.config.js',
+      'jest.config.ts',
+    ],
   },
   {
     files: ['**/*.ts', '**/*.js'],

@@ -7,7 +7,7 @@ import { LoggerService } from 'src/global/services/logger.service';
 import { Environment } from 'src/global/types/environment.types';
 import { ErrorLoggerHandler } from 'src/server/handlers/error-logger.handler';
 import { WebError } from 'src/server/web.error';
-import { getTestContainer } from 'tests/container.mock';
+import { getTestContainer } from '../../../tests/container.spec';
 
 describe('ErrorLoggerHandler', () => {
   let container: AwilixContainer;

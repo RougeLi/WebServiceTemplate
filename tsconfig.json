@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,17 +14,18 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": "./",
     "paths": {
-      "src/*": ["src/*"]
+      "src/*": [
+        "src/*"
+      ]
     },
     "outDir": "./build",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noEmitOnError": true
   },
-  "include": [
-    "*.ts",
-    "src",
-    "eslint.config.js"
-  ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts",
+    "jest.config.ts"
+  ]
 }
