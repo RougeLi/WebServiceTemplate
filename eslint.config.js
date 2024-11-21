@@ -1,20 +1,16 @@
 module.exports = [
   {
-    ignores: [
-      'coverage',
-      'node_modules',
-      'build',
-      '**/*.spec.ts',
-      'eslint.config.js',
-      'jest.config.ts',
+    files: [
+      'src/**/*.ts',
+      'src/**/*.js',
+      'test-utils/**/*.ts',
+      'test-utils/**/*.js',
+      'index.ts',
     ],
-  },
-  {
-    files: ['**/*.ts', '**/*.js'],
     languageOptions: {
       parser: require('@typescript-eslint/parser'),
       parserOptions: {
-        project: './tsconfig.json',
+        project: './tsconfig.eslint.json',
       },
       ecmaVersion: 2024,
       sourceType: 'module',
@@ -49,6 +45,7 @@ module.exports = [
             {
               pattern: 'src/**',
               group: 'internal',
+              position: 'after',
             },
           ],
           alphabetize: {
