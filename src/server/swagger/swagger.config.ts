@@ -37,11 +37,6 @@ export const getSwaggerConfig = (config: AppConfigType): SwaggerOptions => {
         title: `${config.appName} APIs`,
         version: 'v1',
       },
-      servers: [
-        {
-          url: config.appDomain,
-        },
-      ],
       components: {
         securitySchemes,
       },
