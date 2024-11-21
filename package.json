@@ -15,8 +15,8 @@
     "lint": "pnpm run type:check && pnpm run prettier:check && pnpm run lint:code",
     "lint:code": "eslint \"./**/*.{js,ts}\" --quiet",
     "lint:fix": "pnpm run prettier:fix && pnpm run lint:code --fix",
-    "unitest": "jest",
-    "unitest:coverage": "jest --coverage"
+    "uni-test": "jest",
+    "uni-test:coverage": "jest --coverage"
   },
   "keywords": [],
   "author": "Ru <banagher.links448@gmail.com>",

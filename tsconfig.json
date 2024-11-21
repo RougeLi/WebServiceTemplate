@@ -16,6 +16,9 @@
     "paths": {
       "src/*": [
         "src/*"
+      ],
+      "test-utils/*": [
+        "test-utils/*"
       ]
     },
     "outDir": "./build",
@@ -23,9 +26,13 @@
     "experimentalDecorators": true,
     "noEmitOnError": true
   },
+  "include": [
+    "index.ts",
+    "src/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
-    "**/*.spec.ts",
-    "jest.config.ts"
+    "test-utils",
+    "**/*.spec.ts"
   ]
 }

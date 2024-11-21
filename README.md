@@ -1,14 +1,18 @@
 # Web Service Template
 
-## Key Features
+### A foundational template for efficiently developing scalable web service applications.
 
-- **Fastify Framework**: A lightweight and efficient web framework, perfect for building high-performance web services.
-- **TypeScript Support**: Enhances type safety, improving code readability and maintainability.
-- **Dependency Injection**: Managed by Awilix, promoting modular design and separation of concerns.
-- **Environment Variable Management**: Utilizes `@fastify/env` for loading and validating configurations, ensuring
-  consistency across environments.
-- **Template Purpose**: This template is designed to provide a foundational setup for rapid development of web service
-  projects, reducing initial configuration time and focusing on business logic.
+`Summary`:
+
+- [Installation](#installation)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+    - [Core Module (`core`)](#core-module-core)
+- [Script Commands](#script-commands)
+- [Environment Variables](#environment-variables)
+- [Development Workflow](#development-workflow)
+- [Example Module Setup](#example-module-setup)
+- [Development](#development)
 
 ---
 
@@ -20,59 +24,259 @@
 
 ### Installation Steps
 
-1. Clone the repository and navigate to the project directory:
+1. **Clone the repository and navigate to the project directory:**
 
    ```bash
    git clone <repository_url>
-   cd <repository_directory>
+   cd <project_directory>
    ```
 
-2. Copy the example environment variable file:
+2. **Copy the example environment variable file:**
 
    ```bash
    cp .env.example .env
    ```
 
-3. Install dependencies:
+3. **Install dependencies:**
 
    ```bash
    nvm use # Optional, switch to the correct Node.js version based on .nvmrc
-   npm install:ci
+   pnpm install
    ```
 
-4. Run the initial TypeScript compilation:
+4. **Run the initial TypeScript compilation:**
 
    ```bash
-   npm run build
+   pnpm run build
    ```
 
-5. Start the development server:
+5. **Start the development server:**
 
    ```bash
-   npm start
+   pnpm start
    ```
+
+---
+
+## Usage
+
+Provide detailed instructions on how to use the template, including running, debugging, and deploying the application.
+
+---
+
+## Project Structure
+
+```plaintext
+├── README.md
+├── index.ts                # Entry point of the application
+├── package.json
+├── tsconfig.json
+├── tsconfig.eslint.json
+├── eslint.config.js
+├── jest.config.js
+├── pnpm-lock.yaml
+├── node_modules/
+├── src/
+│   ├── core/
+│   │   ├── app/            # Application initialization and setup
+│   │   ├── config/         # Configuration and environment management
+│   │   ├── constants/      # Application constants and enums
+│   │   ├── di/             # Dependency injection container setup
+│   │   ├── server/         # Web server setup, routing, and error handling
+│   │   ├── services/       # Core services
+│   │   ├── types/          # Type definitions and interfaces
+│   │   ├── utils/          # Utility functions
+│   │   └── index.ts        # Core module exports
+│   ├── modules/
+│   │   ├── hello/          # Hello module
+│   │   └── index.ts        # Module registration and startup
+│   └── index.ts            # Entry point of the src directory
+├── test-utils/
+│   ├── containers/
+│   │   ├── test-container.ts
+│   │   └── index.ts        # Test container exports
+│   └── mocks/
+│       ├── environment.mock.ts
+│       ├── logger.mock.ts
+│       └── index.ts        # Mock exports
+```
+
+### Core Module (`core`)
+
+The `core` directory contains the core logic and setup of the application, including initialization, configuration,
+dependency injection, server setup, and common services.
+
+#### `core/app/`
+
+- **`application.ts`**: The main entry point of the application, responsible for starting the app.
+- **`setup-app.ts`**: Sets up the required configurations and middleware for the application.
+- **`di-container.ts`**: Initializes and configures the dependency injection container.
+- **`app.types.ts`**: Type definitions related to the application.
+- **`index.ts`**: Exports the app module.
+- **`spec/`**: Test files for the application.
+
+#### `core/config/`
+
+- **`environment.schema.ts`**: Validation schema for environment variables.
+- **`load-environment.ts`**: Loads and validates environment variables.
+- **`logger.config.ts`**: Logger configurations.
+- **`index.ts`**: Exports the config module.
+- **`spec/`**: Test files for the config module.
+
+#### `core/constants/`
+
+- **`environment.ts`**: Defines the environment types of the application.
+- **`container-tokens.ts`**: Token definitions for the dependency injection container.
+- **`injection-resolver-mode.ts`**: Enum for injection resolver modes.
+- **`log-levels.ts`**: Definitions of log levels.
+- **`index.ts`**: Exports the constants module.
+
+#### `core/di/`
+
+- **`global-containers.ts`**: Setup of the global dependency injection containers.
+- **`index.ts`**: Exports the DI module.
+
+#### `core/server/`
+
+- **`bootstrap/`**: Bootstrap files for the server.
+    - **`web-server.ts`**: Creates and configures the Fastify server instance.
+    - **`index.ts`**: Exports the bootstrap module.
+- **`dto/`**: Common Data Transfer Objects (DTO) for the server.
+    - **`common.dto.ts`**: Common DTO definitions.
+    - **`index.ts`**: Exports the DTO module.
+- **`errors/`**: Server error definitions.
+    - **`bad-request.error.ts`**: Handles 400 errors.
+    - **`not-found.error.ts`**: Handles 404 errors.
+    - **`unauthorized.error.ts`**: Handles 401 errors.
+    - **`index.ts`**: Exports the errors module.
+- **`handlers/`**: Error and response handlers.
+    - **`error-logger.handler.ts`**: Error logging handler.
+    - **`reply.handler.ts`**: Reply handler.
+    - **`route.handler.ts`**: Route handler.
+    - **`index.ts`**: Exports the handlers module.
+    - **`spec/`**: Test files for handlers.
+- **`swagger/`**: Swagger configuration.
+    - **`swagger.config.ts`**: Settings for Swagger.
+    - **`index.ts`**: Exports the Swagger module.
+- **`types/`**: Type definitions related to the server.
+    - **`swagger.types.ts`**: Swagger type definitions.
+    - **`index.ts`**: Exports the types module.
+- **`index.ts`**: Exports the server module.
+
+#### `core/services/`
+
+- **`logger.service.ts`**: Logger service.
+- **`environment.service.ts`**: Environment service.
+- **`index.ts`**: Exports the services module.
+- **`spec/`**: Test files for services.
+
+#### `core/types/`
+
+- **`di.types.ts`**: Type definitions related to dependency injection.
+- **`app-config.types.ts`**: Application configuration type definitions.
+- **`module.types.ts`**: Module type definitions.
+- **`request-context.types.ts`**: Request context type definitions.
+- **`index.ts`**: Exports the types module.
+
+#### `core/utils/`
+
+- **`base.module.ts`**: Base class definition for modules.
+- **`base.route.ts`**: Base class definition for routes.
+- **`di-registration-factory.ts`**: Factory functions for dependency registration.
+- **`uuid.ts`**: Utility for UUID generation.
+- **`web.error.ts`**: Web error definitions.
+- **`index.ts`**: Exports the utils module.
+- **`spec/`**: Test files for utils.
 
 ---
 
 ## Script Commands
 
-This template provides useful npm script commands to assist with development and project maintenance:
+This template provides useful pnpm script commands to assist with development and project maintenance:
 
 - **install:ci**: Installs dependencies using a frozen lockfile, ideal for CI environments.
+
+  ```bash
+  pnpm install --frozen-lockfile
+  ```
+
 - **install:dev**: Installs dependencies without freezing the lockfile, suitable for development.
+
+  ```bash
+  pnpm install --no-frozen-lockfile
+  ```
+
 - **build**: Compiles TypeScript files into JavaScript.
+
+  ```bash
+  pnpm run build
+  ```
+
 - **build:watch**: Watches for file changes and automatically recompiles TypeScript files.
+
+  ```bash
+  pnpm run build:watch
+  ```
+
 - **start**: Runs both TypeScript compilation and server with code change monitoring.
+
+  ```bash
+  pnpm start
+  ```
+
 - **run:watch**: Runs the server in watch mode, automatically restarting on changes.
+
+  ```bash
+  pnpm run run:watch
+  ```
+
 - **prettier:check**: Checks code formatting with Prettier.
+
+  ```bash
+  pnpm run prettier:check
+  ```
+
 - **prettier:fix**: Automatically fixes code formatting issues.
+
+  ```bash
+  pnpm run prettier:fix
+  ```
+
 - **type:check**: Runs TypeScript type checking to ensure code follows type rules.
+
+  ```bash
+  pnpm run type:check
+  ```
+
 - **lint**: Runs type checking and linting to ensure code quality.
+
+  ```bash
+  pnpm run lint
+  ```
+
 - **lint:code**: Uses ESLint to check for potential issues in the code.
+
+  ```bash
+  pnpm run lint:code
+  ```
+
 - **lint:fix**: Automatically fixes formatting and linting issues.
-- **pretest**: Runs code checks before executing tests.
-- **test**: Runs unit tests with Jest, ensuring code functionality.
-- **test:coverage**: Runs tests and generates a coverage report to verify the completeness of the tests.
+
+  ```bash
+  pnpm run lint:fix
+  ```
+
+- **uni-test**: Runs unit tests with Jest, ensuring code functionality.
+
+  ```bash
+  pnpm run unitest
+  ```
+
+- **uni-test:coverage**: Runs tests and generates a coverage report to verify the completeness of the tests.
+
+  ```bash
+  pnpm run unitest:coverage
+  ```
 
 ---
 
@@ -81,40 +285,18 @@ This template provides useful npm script commands to assist with development and
 The environment settings for the project are stored in the `.env` file. Below is an example configuration:
 
 ```bash
-// Application name, identifies the app across services
+# Application name, identifies the app across services
 APP_NAME=WebServiceTemplate
 
-// Application runtime environment (development, staging, production)
+# Application runtime environment (development, staging, production)
 APP_ENV=development
 
-// Domain and Swagger path for API documentation and testing
+# Domain and Swagger path for API documentation and testing
 APP_DOMAIN=http://localhost:3000
 
-// Port number where the service runs, adjustable based on deployment environment
+# Port number where the service runs, adjustable based on deployment environment
 APP_PORT=3000
 ```
-
----
-
-## Project Structure
-
-```text
-src/
-  ├── app/                # Application entry point and primary setup files
-  ├── config/             # Application configuration and environment management
-  ├── global/             # Shared services, utilities, DI container registration, and type definitions
-  ├── server/             # Web server setup, routing, and error handling
-  ├── global-container.ts # Global DI container registration for dependency injection
-  └── modules.ts          # Application module registration and startup
-tests/                    # Unit tests and mock data
-```
-
-- `app/`: Contains the application’s initialization, startup logic, and related settings.
-- `config/`: Manages the application’s configuration files and environment variables, ensuring flexibility across
-  different environments.
-- `global/`: Defines global services, utilities, and handles DI (Dependency Injection) registration logic.
-- `server/`: Manages server logic, routing, and error handling mechanisms.
-- `tests/`: Contains unit tests and relevant mock files to ensure the functionality of the application.
 
 ---
 
@@ -124,19 +306,19 @@ tests/                    # Unit tests and mock data
    restarts the server:
 
    ```bash
-   npm start
+   pnpm start
    ```
 
 2. **Automatic Fixes and Formatting**: Ensure code follows project standards and automatically fix issues:
 
    ```bash
-   npm run lint:fix
+   pnpm run lint:fix
    ```
 
 3. **Testing and Coverage**: Use Jest for testing and generate test coverage reports:
 
    ```bash
-   npm test:coverage
+   pnpm run unitest:coverage
    ```
 
 ---
@@ -145,36 +327,43 @@ tests/                    # Unit tests and mock data
 
 ### Module Structure
 
-```text
+```plaintext
 src/
-  ├── hello/              # Hello module-related files
-  │   ├── controllers/    # Controller layer handling HTTP requests
-  │   │   └── hello.controller.ts
-  │   ├── dto/            # Data Transfer Objects (DTOs), defining request and response formats
-  │   │   └── hello.dto.ts
-  │   ├── routes/         # Route layer, defining API paths
-  │   │   └── hello.route.ts
-  │   ├── services/       # Service layer, handling business logic
-  │   │   └── hello.service.ts
-  │   ├── spec/           # Unit tests
-  │   │   ├── hello.controller.spec.ts
-  │   │   └── hello.service.spec.ts
-  │   ├── types/          # Type definitions and module configuration files
-  │   │   ├── hello.types.ts
-  │   │   └── hello.module.ts
-  └── modules.ts          # Module registration and startup
+  ├── modules/
+  │   ├── hello/              # Hello module-related files
+  │   │   ├── constants/      # Module-specific constants
+  │   │   │   ├── hello-routes.ts
+  │   │   │   └── injection-tokens.ts
+  │   │   ├── controllers/    # Controller layer handling HTTP requests
+  │   │   │   └── hello.controller.ts
+  │   │   ├── dto/            # Data Transfer Objects (DTOs), defining request and response formats
+  │   │   │   └── hello.dto.ts
+  │   │   ├── routes/         # Route definitions
+  │   │   │   └── hello.route.ts
+  │   │   ├── services/       # Business logic
+  │   │   │   └── hello.service.ts
+  │   │   ├── spec/           # Unit tests
+  │   │   │   ├── hello.controller.spec.ts
+  │   │   │   └── hello.service.spec.ts
+  │   │   ├── types/          # Type definitions
+  │   │   │   └── hello.types.ts
+  │   │   ├── hello.module.ts # Module configuration file
+  │   │   └── index.ts        # Module exports
+  │   └── index.ts            # Module registration and startup
 ```
 
 ### Module Configuration
 
-In `modules.ts`, register the Hello module:
+In `src/modules/index.ts`, register the Hello module:
 
 ```typescript
-import { IModule } from 'src/global/types/module.types';
-import { HelloModule } from 'src/hello/hello.module';
+// src/modules/index.ts
+
+import { IModule } from 'src/core/types';
+import { HelloModule } from './hello';
 
 const modules: IModule[] = [
-  new HelloModule() // Register the Hello module
+  new HelloModule(), // Register the Hello module
 ];
 
 export default modules;
@@ -186,6 +375,15 @@ The Hello module contains controllers, services, and routes, and is registered f
 configuration file:
 
 ```typescript
+// src/modules/hello/hello.module.ts
+
+import { BaseModule } from 'src/core/utils';
+import { InjectionTokens } from './constants/injection-tokens';
+import { InjectionResolverMode } from 'src/core/constants';
+import { HelloRoute } from './routes/hello.route';
+import { HelloController } from './controllers/hello.controller';
+import { HelloService } from './services/hello.service';
+
 export class HelloModule extends BaseModule {
   // Register module dependencies
   registerDependencies() {
@@ -208,18 +406,38 @@ export class HelloModule extends BaseModule {
 }
 ```
 
-### Define Hello Module Types
+### Define Constants
+
+In the `constants` directory, define the `HelloRoutes` and `InjectionTokens` enums.
 
 ```typescript
-export enum Routes {
+// src/modules/hello/constants/hello-routes.ts
+
+export enum HelloRoutes {
   HELLO = '/hello',
 }
+```
+
+```typescript
+// src/modules/hello/constants/injection-tokens.ts
 
 export enum InjectionTokens {
   HELLO_ROUTE = 'helloRoute',
   HELLO_CONTROLLER = 'helloController',
   HELLO_SERVICE = 'helloService',
 }
+```
+
+### Define Types
+
+In the `types` directory, define the types related to the Hello module.
+
+```typescript
+// src/modules/hello/types/hello.types.ts
+
+import { Static } from '@sinclair/typebox';
+import { FastifyRequest } from 'fastify';
+import { SayHelloQuery } from '../dto/hello.dto';
 
 export type SayHelloQueryType = Static<typeof SayHelloQuery>;
 
@@ -230,11 +448,15 @@ export type SayHelloRequestType = FastifyRequest<{
 
 ### Register Routes
 
-- BaseRoute is an abstract class defining the basic structure of routes.
-- The child classes of BaseRoute register routes by calling the `registerRoutes` method through the DI system.
-- HelloRoute extends BaseRoute and implements the `registerRoutes` method.
-
 ```typescript
+// src/modules/hello/routes/hello.route.ts
+
+import { BaseRoute } from 'src/core/utils';
+import { HelloController } from '../controllers/hello.controller';
+import { WebServer } from 'src/core/types';
+import { HelloRoutes } from '../constants/hello-routes';
+import { SayHelloSchema } from '../dto/hello.dto';
+
 export class HelloRoute extends BaseRoute {
   constructor(private readonly helloController: HelloController) {
     super();
@@ -242,7 +464,7 @@ export class HelloRoute extends BaseRoute {
 
   registerRoutes(webServer: WebServer) {
     webServer.get(
-      Routes.HELLO,
+      HelloRoutes.HELLO,
       SayHelloSchema,
       this.helloController.sayHello.bind(this.helloController),
     );
@@ -252,9 +474,12 @@ export class HelloRoute extends BaseRoute {
 
 ### Create Services Using Any Architecture
 
-In the common MVC design pattern, resources required by each layer can be injected using the DI system.
-
 ```typescript
+// src/modules/hello/controllers/hello.controller.ts
+
+import { HelloService } from '../services/hello.service';
+import { SayHelloRequestType } from '../types/hello.types';
+
 export class HelloController {
   constructor(private readonly helloService: HelloService) {
   }
@@ -264,6 +489,11 @@ export class HelloController {
     return this.helloService.sayHello(query);
   }
 }
+
+// src/modules/hello/services/hello.service.ts
+
+import { LoggerService } from 'src/core/services';
+import { SayHelloQueryType } from '../types/hello.types';
 
 export class HelloService {
   constructor(private readonly logger: LoggerService) {
@@ -279,10 +509,13 @@ export class HelloService {
 
 ### Define Request and Response Formats for Routes
 
-Fastify supports automatic generation of JSON Schema and Swagger pages, so you can define request and response formats
-using TypeBox.
-
 ```typescript
+// src/modules/hello/dto/hello.dto.ts
+
+import { Type } from '@sinclair/typebox';
+import { StatusCodes } from 'http-status-codes';
+import { CommonSchema } from 'src/core/server';
+
 export const SayHelloQuery = Type.Object({
   name: Type.Optional(
     Type.String({
@@ -311,9 +544,18 @@ export const SayHelloSchema = {
       ...CommonSchema,
       [StatusCodes.OK]: SayHelloResponse,
     },
-    description: 'This endpoint generates a greeting message based on the provided name and age. If no name is given, the default message will be returned.',
+    description:
+      'This endpoint generates a greeting message based on the provided name and age. If no name is given, the default message will be returned.',
     summary: 'Generates a personalized greeting message.',
     tags: ['hello'],
   },
 };
 ```
+
+---
+
+## Development
+
+### TODO
+
+...
