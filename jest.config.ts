@@ -6,7 +6,6 @@ import type { Config } from 'jest';
  */
 const config: Config = {
   clearMocks: true,
-  collectCoverage: true,
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '<rootDir>/../coverage',
   coveragePathIgnorePatterns: [
