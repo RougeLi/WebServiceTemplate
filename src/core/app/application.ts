@@ -1,5 +1,5 @@
 import { ContainerTokens } from 'src/core/constants';
-import { createWeb } from 'src/core/server/bootstrap';
+import { createWebServer } from 'src/core/server/bootstrap';
 import { registerRoutes } from 'src/core/server/handlers';
 import { EnvironmentService } from 'src/core/services';
 import { AppConfigType, AppContainer, WebServer } from 'src/core/types';
@@ -18,12 +18,17 @@ export default class Application implements IApplication {
   }
 
   async initialize(): Promise<void> {
-    console.log('Application initialization started');
+    console.log('Application initialization started...');
+
+    const { appName, appEnv } = this.config;
     console.log(
-      'Application configuration successfully loaded:',
-      JSON.stringify(this.config, undefined, 2),
+      'Application configuration:',
+      JSON.stringify({ appName, appEnv }, undefined, 2),
     );
-    this.webServer = await createWeb(this.container, this.config);
+
+    this.webServer = await createWebServer(this.container, this.config);
+
+    // Register routes
     registerRoutes(this.container, this.webServer);
   }
 
@@ -32,5 +37,6 @@ export default class Application implements IApplication {
     const host = '::';
     const port = this.config.appPort;
     await this.webServer.listen({ host, port });
+    console.log(`Application started on ${host}:${port}.`);
   }
 }
