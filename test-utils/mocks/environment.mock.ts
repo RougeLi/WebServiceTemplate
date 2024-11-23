@@ -1,7 +1,10 @@
+import { Environment } from 'src/core/constants';
 import { AppConfigType } from 'src/core/types';
 
 export function getEnvironmentServiceMock(
-  appConfigType: Partial<AppConfigType> = {},
+  appConfigType: Partial<AppConfigType> = {
+    appEnv: Environment.DEVELOPMENT,
+  },
 ) {
   const defaultConfig: AppConfigType = {
     ...appConfigType,
@@ -9,5 +12,9 @@ export function getEnvironmentServiceMock(
 
   return {
     getConfig: jest.fn().mockReturnValue(defaultConfig),
+    getAppEnv: jest.fn().mockReturnValue(defaultConfig.appEnv),
+    isDevelopment: jest
+      .fn()
+      .mockReturnValue(defaultConfig.appEnv === Environment.DEVELOPMENT),
   };
 }

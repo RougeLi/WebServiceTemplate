@@ -8,9 +8,9 @@ export class ErrorLoggerHandler {
 
   constructor(
     private readonly logger: LoggerService,
-    private readonly environmentService: EnvironmentService,
+    private readonly environment: EnvironmentService,
   ) {
-    this.config = this.environmentService.getConfig();
+    this.config = this.environment.getConfig();
   }
 
   logError(error: WebError) {

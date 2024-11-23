@@ -9,7 +9,7 @@ export const getTestContainer = (): AwilixContainer => {
   const container = createContainer({ injectionMode: 'CLASSIC' });
 
   container.register(
-    ContainerTokens.ENVIRONMENT_SERVICE,
+    ContainerTokens.ENVIRONMENT,
     asValue(getEnvironmentServiceMock()),
   );
 

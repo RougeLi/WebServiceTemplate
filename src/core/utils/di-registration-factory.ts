@@ -10,11 +10,6 @@ import {
  * Creates a DependencyRegistration tuple based on the provided injection mode.
  * This function can be used to register a service into the DI container with a specific
  * injection mode (singleton, scoped, transient, etc.).
- *
- * @param token {string} - The token used to register the dependency in the DI container.
- * @param classType {ClassType} - The class constructor for the dependency to be registered.
- * @param injectionMode {InjectionResolverMode} - The mode for injecting the dependency (singleton, scoped, etc.).
- * @returns {DependencyRegistration} - A tuple containing the token and its corresponding resolver.
  */
 export function makeDependencyRegistration(
   token: string,
@@ -42,11 +37,6 @@ export function makeDependencyRegistration(
  * in the DI container based on the provided injection mode.
  * This function reuses makeDependencyRegistration and ensures the return type aligns with
  * the ContainerRegistration tuple format.
- *
- * @param token {ContainerTokens} - The token used to register the container service in the DI container.
- * @param classType {ClassType} - The class constructor for the service to be registered.
- * @param injectionMode {InjectionResolverMode} - The mode for injecting the service (singleton, scoped, etc.).
- * @returns {ContainerRegistration} - A tuple containing the token and its corresponding resolver for the container.
  */
 export function makeContainerRegistration(
   token: ContainerTokens,

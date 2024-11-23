@@ -1,4 +1,6 @@
 export enum ContainerTokens {
-  ENVIRONMENT_SERVICE = 'environmentService',
+  ENVIRONMENT = 'environment',
   LOGGER = 'logger',
+  PRISMA_CONFIG = 'prismaConfig',
+  PRISMA = 'prisma',
 }

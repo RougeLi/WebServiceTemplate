@@ -28,7 +28,7 @@ export async function createWebServer(
 
   // Resolve EnvironmentService
   const environmentService = container.resolve<EnvironmentService>(
-    ContainerTokens.ENVIRONMENT_SERVICE,
+    ContainerTokens.ENVIRONMENT,
   );
 
   // Instantiate reply and error handlers

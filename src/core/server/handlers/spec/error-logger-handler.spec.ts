@@ -10,7 +10,7 @@ import { ErrorLoggerHandler } from '../error-logger.handler';
 describe('ErrorLoggerHandler', () => {
   let container: AwilixContainer;
   let loggerService: Partial<LoggerService>;
-  let environmentService: Partial<EnvironmentService>;
+  let environment: Partial<EnvironmentService>;
   let errorLoggerHandler: ErrorLoggerHandler;
 
   beforeEach(() => {
@@ -20,28 +20,23 @@ describe('ErrorLoggerHandler', () => {
       error: jest.fn(),
     };
 
-    environmentService = {
+    environment = {
       getConfig: jest.fn(),
     };
 
     container.register(ContainerTokens.LOGGER, asValue(loggerService));
 
-    container.register(
-      ContainerTokens.ENVIRONMENT_SERVICE,
-      asValue(environmentService),
-    );
+    container.register(ContainerTokens.ENVIRONMENT, asValue(environment));
   });
 
   function setupEnvironment(appEnvironment: Environment | undefined) {
-    jest.spyOn(environmentService, 'getConfig').mockReturnValue({
+    jest.spyOn(environment, 'getConfig').mockReturnValue({
       appEnv: appEnvironment,
     } as AppConfigType);
 
     errorLoggerHandler = new ErrorLoggerHandler(
       container.resolve<LoggerService>(ContainerTokens.LOGGER),
-      container.resolve<EnvironmentService>(
-        ContainerTokens.ENVIRONMENT_SERVICE,
-      ),
+      container.resolve<EnvironmentService>(ContainerTokens.ENVIRONMENT),
     );
   }
 
@@ -123,9 +118,7 @@ describe('ErrorLoggerHandler', () => {
 
     errorLoggerHandler = new ErrorLoggerHandler(
       container.resolve<LoggerService>(ContainerTokens.LOGGER),
-      container.resolve<EnvironmentService>(
-        ContainerTokens.ENVIRONMENT_SERVICE,
-      ),
+      container.resolve<EnvironmentService>(ContainerTokens.ENVIRONMENT),
     );
 
     errorLoggerHandler.internalError(error);

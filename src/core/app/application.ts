@@ -1,4 +1,5 @@
 import { ContainerTokens } from 'src/core/constants';
+import { executeOnInitiateHooks } from 'src/core/di';
 import { createWebServer } from 'src/core/server/bootstrap';
 import { registerRoutes } from 'src/core/server/handlers';
 import { EnvironmentService } from 'src/core/services';
@@ -6,15 +7,15 @@ import { AppConfigType, AppContainer, WebServer } from 'src/core/types';
 import { IApplication } from './app.types';
 
 export default class Application implements IApplication {
-  private environmentService: EnvironmentService;
+  private environment: EnvironmentService;
   private readonly config: AppConfigType;
   private webServer!: WebServer;
 
   constructor(private readonly container: AppContainer) {
-    this.environmentService = this.container.resolve<EnvironmentService>(
-      ContainerTokens.ENVIRONMENT_SERVICE,
+    this.environment = this.container.resolve<EnvironmentService>(
+      ContainerTokens.ENVIRONMENT,
     );
-    this.config = this.environmentService.getConfig();
+    this.config = this.environment.getConfig();
   }
 
   async initialize(): Promise<void> {
@@ -27,6 +28,9 @@ export default class Application implements IApplication {
     );
 
     this.webServer = await createWebServer(this.container, this.config);
+    console.log('Application initialization completed.');
+
+    await executeOnInitiateHooks(this.container);
 
     // Register routes
     registerRoutes(this.container, this.webServer);
