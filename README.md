@@ -2,6 +2,17 @@
 
 ### A foundational template for efficiently developing scalable web service applications.
 
+---
+
+## Features
+
+- **Efficient Development:** Provides a foundational template for efficiently developing scalable web services.
+- **Modular Design:** Includes a detailed project structure and modular design for easy maintenance and scalability.
+- **Simplified Workflow:** Offers rich script commands to simplify development and deployment processes.
+- **Enhanced Development Efficiency:** Supports hot reload and automatic compilation, enhancing development efficiency.
+- **Core Functionalities Integrated:** Integrates core functionalities such as dependency injection, configuration
+  management, and error handling.
+
 `Summary`:
 
 - [Installation](#installation)
@@ -21,6 +32,11 @@
 ### Prerequisites
 
 - Ensure that the correct version of Node.js is installed. You can refer to the `.nvmrc` file for the specific version.
+- Install [pnpm](https://pnpm.io/) globally:
+
+  ```bash
+  npm install -g pnpm
+  ```
 
 ### Installation Steps
 
@@ -28,29 +44,37 @@
 
    ```bash
    git clone <repository_url>
-   cd <project_directory>
    ```
 
-2. **Copy the example environment variable file:**
+   ```bash
+   cd <project_directory>
+   ```
+2. **Deploy the Local development environment:**  
+   See the [Development](#development) section for more details.
+
+3. **Copy the example environment variable file:**
 
    ```bash
    cp .env.example .env
    ```
 
-3. **Install dependencies:**
+4. **Install dependencies:**
 
    ```bash
    nvm use # Optional, switch to the correct Node.js version based on .nvmrc
-   pnpm install
    ```
 
-4. **Run the initial TypeScript compilation:**
+   ```bash
+   pnpm run install:ci
+   ```
+
+5. **Run the initial TypeScript compilation:**
 
    ```bash
    pnpm run build
    ```
 
-5. **Start the development server:**
+6. **Start the development server:**
 
    ```bash
    pnpm start
@@ -266,16 +290,16 @@ This template provides useful pnpm script commands to assist with development an
   pnpm run lint:fix
   ```
 
-- **uni-test**: Runs unit tests with Jest, ensuring code functionality.
+- **unit-test**: Runs unit tests with Jest, ensuring code functionality.
 
   ```bash
-  pnpm run unitest
+  pnpm run unit-test
   ```
 
-- **uni-test:coverage**: Runs tests and generates a coverage report to verify the completeness of the tests.
+- **unit-test:coverage**: Runs tests and generates a coverage report to verify the completeness of the tests.
 
   ```bash
-  pnpm run unitest:coverage
+  pnpm run unit-test:coverage
   ```
 
 ---
@@ -338,13 +362,15 @@ src/
   │   │   │   └── hello.controller.ts
   │   │   ├── dto/            # Data Transfer Objects (DTOs), defining request and response formats
   │   │   │   └── hello.dto.ts
+  │   │   ├── model/          # Data models
+  │   │   │   └── hello.model.ts
   │   │   ├── routes/         # Route definitions
   │   │   │   └── hello.route.ts
   │   │   ├── services/       # Business logic
   │   │   │   └── hello.service.ts
   │   │   ├── spec/           # Unit tests
-  │   │   │   ├── hello.controller.spec.ts
-  │   │   │   └── hello.service.spec.ts
+  │   │   │   ├── *.spec.ts
+  │   │   │   └── ...
   │   │   ├── types/          # Type definitions
   │   │   │   └── hello.types.ts
   │   │   ├── hello.module.ts # Module configuration file
@@ -466,13 +492,13 @@ export class HelloRoute extends BaseRoute {
     webServer.get(
       HelloRoutes.HELLO,
       SayHelloSchema,
-      this.helloController.sayHello.bind(this.helloController),
+      this.helloController.sayHello,
     );
   }
 }
 ```
 
-### Create Services Using Any Architecture
+### Create Models, Services, and Controllers
 
 ```typescript
 // src/modules/hello/controllers/hello.controller.ts
@@ -484,25 +510,52 @@ export class HelloController {
   constructor(private readonly helloService: HelloService) {
   }
 
-  sayHello(request: SayHelloRequestType) {
+  sayHello = (request: SayHelloRequestType) => {
     const { query } = request;
     return this.helloService.sayHello(query);
-  }
+  };
 }
 
 // src/modules/hello/services/hello.service.ts
 
 import { LoggerService } from 'src/core/services';
+import { HelloModel } from '../model/hello.model';
 import { SayHelloQueryType } from '../types/hello.types';
 
 export class HelloService {
-  constructor(private readonly logger: LoggerService) {
+  constructor(
+    private readonly logger: LoggerService,
+    private readonly helloModel: HelloModel,
+  ) {
   }
 
-  sayHello(query: SayHelloQueryType): string {
-    const message = query.name ? `Hello ${query.name}!` : 'Hello guys!';
-    this.logger.info(message);
-    return message;
+  async sayHello(query: SayHelloQueryType): Promise<string> {
+    const { name, age } = query;
+    const Name = name ? name : 'guys';
+    const Age = age ? age : 18;
+    this.logger.info(`Saying hello to ${Name}...`);
+    await this.helloModel.saveUser(Name, Age);
+
+    if (Age < 18) {
+      return `Hello ${Name}! You are still young.`;
+    }
+    return `Hello ${Name}!`;
+  }
+}
+
+// src/modules/hello/model/hello.model.ts
+
+import PrismaService from 'src/core/services/prisma.service';
+
+export class HelloModel {
+  constructor(private readonly prisma: PrismaService) {
+  }
+
+  async saveUser(Name: string, Age: number): Promise<void> {
+    const data = { Name, Age };
+    await this.prisma.user.create({
+      data,
+    });
   }
 }
 ```
@@ -556,6 +609,33 @@ export const SayHelloSchema = {
 
 ## Development
 
-### TODO
+### Setting Up a Local `PostgreSQL` Database
 
-...
+1. **Install [Docker](https://www.docker.com/).**
+
+2. **Navigate to the project's `.dev-app-projects` directory:**
+
+   ```bash
+    cd .dev-app-projects
+   ```
+
+3. **Run the following command:**
+
+   ```bash
+    docker-compose up -d
+   ```
+
+4. **Prepare the database:**
+
+   **Note**: Ensure that at least one Prisma model is defined in the `schema.prisma` file before running `migrate dev`
+   or `generate`.
+
+   ```bash
+    npx prisma migrate dev
+   ```
+
+   or generate the Prisma client:
+
+   ```bash
+    npx prisma generate
+   ```

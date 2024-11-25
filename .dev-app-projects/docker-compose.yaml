@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: app-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: appUser
+      POSTGRES_PASSWORD: appPassword
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
