@@ -84,4 +84,65 @@ describe('LoggerService', () => {
       expect(loggerInstance).toBe(mockLogger);
     });
   });
+
+  describe('empty arguments', () => {
+    it('should return early if no arguments are provided', () => {
+      service.info();
+      expect(mockLogger.info).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('LoggerService with object arguments', () => {
+    it('should handle object as first parameter', () => {
+      const obj = { userId: 123, action: 'login' };
+      service.info(obj);
+      expect(mockLogger.info).toHaveBeenCalledWith(obj);
+    });
+
+    it('should handle object as first parameter and a string message as second parameter', () => {
+      const obj = { userId: 123, action: 'login' };
+      const message = 'User login action';
+      service.info(obj, message);
+      expect(mockLogger.info).toHaveBeenCalledWith(obj, message);
+    });
+
+    it('should handle object as first parameter and multiple extra arguments', () => {
+      const obj = { userId: 123, action: 'login' };
+      service.info(obj, 'User login action', 'extra1', 'extra2');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        obj,
+        'User login action',
+        'extra1',
+        'extra2',
+      );
+    });
+
+    it('should filter out undefined arguments after object parameter', () => {
+      const obj = { key: 'value' };
+      service.info(obj, undefined, 'some other arg');
+      // 預期不會有undefined傳入logger，filteredArguments應該只會留有 'some other arg'
+      expect(mockLogger.info).toHaveBeenCalledWith(obj, 'some other arg');
+    });
+
+    it('should convert non-object, non-string first arguments to string', () => {
+      const numberVal = 123;
+      service.info(numberVal);
+      expect(mockLogger.info).toHaveBeenCalledWith('123');
+    });
+  });
+
+  describe('LoggerService with error arguments', () => {
+    it('should handle Error object properly', () => {
+      const error = new Error('Test error');
+      service.error(error);
+      expect(mockLogger.error).toHaveBeenCalledWith(error);
+    });
+
+    it('should handle Error object and a message', () => {
+      const error = new Error('Test error with message');
+      const message = 'An error occurred';
+      service.error(error, message);
+      expect(mockLogger.error).toHaveBeenCalledWith(error, message);
+    });
+  });
 });

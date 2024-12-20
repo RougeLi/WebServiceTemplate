@@ -5,3 +5,4 @@ export * from './global-container-config.types';
 export * from './di.types';
 export * from './module.types';
 export * from './prisma.types';
+export * from './logger.types';
