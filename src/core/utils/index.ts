@@ -6,3 +6,4 @@ export {
 } from './di-registration-factory';
 export { generateRequestId } from './uuid';
 export { default as WebError } from './web.error';
+export { default as DbUtils } from './db-utils';

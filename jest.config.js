@@ -5,9 +5,10 @@
 const config = {
   clearMocks: true,
   collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '<rootDir>/../coverage',
   coveragePathIgnorePatterns: [
     '/node_modules/',
+    '/prisma/',
+    '/tests/',
     '/test-utils/',
     '/constants/',
     '.*.mock.ts$',

@@ -13,3 +13,9 @@ build/
 # IDE and editor directories
 .idea/
 .vscode/
+
+# prisma client
+prisma/client_*/
+
+# testing
+tests/

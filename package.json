@@ -1,11 +1,14 @@
 {
   "name": "web-service-template",
   "version": "1.0.0",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "description": "The template for developing web service",
   "scripts": {
     "install:ci": "pnpm install --frozen-lockfile",
     "install:dev": "pnpm install --no-frozen-lockfile",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && pnpm run generate",
     "build:watch": "tsc -p tsconfig.json --watch",
     "run:watch": "cross-env NODE_PATH=./build nodemon -r source-map-support/register --watch ./build build/index.js",
     "start": "concurrently -n \"TS,Server\" -c \"yellow.bold,green.bold\" \"pnpm run build:watch\" \"pnpm run run:watch\"",
@@ -16,7 +19,11 @@
     "lint": "pnpm run type:check && pnpm run prettier:check && pnpm run lint:code",
     "lint:fix": "pnpm run prettier:fix && pnpm run lint:code --fix",
     "unit-test": "jest",
-    "unit-test:coverage": "jest --coverage"
+    "unit-test:coverage": "jest --coverage",
+    "generate": "npx prisma generate",
+    "migrate": "npx prisma migrate dev",
+    "deploy": "npx prisma migrate deploy",
+    "reset": "npx prisma migrate reset"
   },
   "keywords": [],
   "author": "Ru <banagher.links448@gmail.com>",

@@ -1,15 +1,29 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+export type LogLevel = 'info' | 'query' | 'warn' | 'error';
 
-export type CustomPrismaClient = PrismaClient<CustomPrismaClientOptions>;
+export type PrismaLogLevels = LogLevel[];
 
-export type PrismaLogLevels = Prisma.LogLevel[];
+export type PrismaQueryEvent = {
+  timestamp: Date;
+  query: string;
+  params: string;
+  duration: number;
+  target: string;
+};
 
-export type PrismaQueryEvent = Prisma.QueryEvent;
+export type PrismaErrorFormat = 'pretty' | 'colorless' | 'minimal';
 
-export type PrismaErrorFormat = Prisma.ErrorFormat;
+export type PrismaClientOptions = {
+  log: Array<{ emit: 'event'; level: LogLevel }>;
+  errorFormat: PrismaErrorFormat;
+};
 
-export type PrismaClientOptions = Prisma.PrismaClientOptions;
-
-interface CustomPrismaClientOptions extends Prisma.PrismaClientOptions {
-  log: Array<{ level: Prisma.LogLevel; emit: 'event' }>;
-}
+export type CustomPrismaClient = {
+  $on<V extends 'query' | 'info' | 'warn' | 'error'>(
+    eventType: V,
+    callback: (
+      event: V extends 'query' ? PrismaQueryEvent : { message: string },
+    ) => void,
+  ): void;
+  $connect(): Promise<void>;
+  $disconnect(): Promise<void>;
+};
