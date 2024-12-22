@@ -1,5 +1,5 @@
 import { ContainerTokens, InjectionResolverMode } from 'src/core/constants';
-import { AppContainer, ClassType } from 'src/core/types/di.types';
+import { AppContainer, ClassType } from './di.types';
 
 type GlobalContainerConfig = {
   service: ClassType;

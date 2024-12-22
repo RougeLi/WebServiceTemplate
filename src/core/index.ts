@@ -1,7 +1,6 @@
-export * as App from './app';
-export * as Config from './config';
-export * as Constants from './constants';
-export * as DI from './di';
+export * from './config';
+export * from './utils';
 export * as Services from './services';
-export * as Types from './types';
-export * as Utils from './utils';
+export * as DI from './di';
+export * as Server from './server';
+export { setupApp } from './app';

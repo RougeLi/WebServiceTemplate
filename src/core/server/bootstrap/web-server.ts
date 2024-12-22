@@ -7,11 +7,16 @@ import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import Fastify from 'fastify';
 import { LoggerConfig } from 'src/core/config';
 import { ContainerTokens, Environment } from 'src/core/constants';
-import { ErrorLoggerHandler, ReplyHandler } from 'src/core/server/handlers';
-import { getSwaggerConfig, getSwaggerUiConfig } from 'src/core/server/swagger';
 import { EnvironmentService, LoggerService } from 'src/core/services';
 import { AppConfigType, AppContainer, WebServer } from 'src/core/types';
-import { generateRequestId, WebError } from 'src/core/utils';
+import { generateRequestId } from 'src/core/utils';
+import {
+  WebError,
+  ErrorLoggerHandler,
+  ReplyHandler,
+  getSwaggerConfig,
+  getSwaggerUiConfig,
+} from '../index';
 
 export async function createWebServer(
   container: AppContainer,

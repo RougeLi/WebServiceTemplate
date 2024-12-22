@@ -1,5 +1,5 @@
 import { InjectionResolverMode } from 'src/core/constants';
-import { registerRouteToken } from 'src/core/server/handlers';
+import { registerRouteToken } from 'src/core/server';
 import { ClassType, DependencyRegistrations, IModule } from 'src/core/types';
 import { makeDependencyRegistration } from './di-registration-factory';
 

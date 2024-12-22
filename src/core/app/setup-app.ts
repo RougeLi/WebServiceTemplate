@@ -1,6 +1,5 @@
 import { diContainerClassic } from '@fastify/awilix';
-import { loadEnvironment } from 'src/core/config';
-import { globalContainers } from 'src/core/di';
+import { loadEnvironment, DI } from 'src/core';
 import { AppContainer, IModule } from 'src/core/types';
 import { IApplication } from './app.types';
 import Application from './application';
@@ -21,7 +20,7 @@ export default async function setupApp(
 }
 
 function registerContainers(container: AppContainer): void {
-  for (const globalContainer of globalContainers) {
+  for (const globalContainer of DI.globalContainers) {
     const [token, resolver] = globalContainer;
     container.register(token, resolver);
   }

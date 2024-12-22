@@ -2,9 +2,9 @@ import { asValue, AwilixContainer } from 'awilix';
 import { StatusCodes } from 'http-status-codes';
 import { getTestContainer } from 'test-utils/containers';
 import { ContainerTokens, Environment } from 'src/core/constants';
+import { WebError } from 'src/core/server';
 import { EnvironmentService, LoggerService } from 'src/core/services';
 import { AppConfigType } from 'src/core/types';
-import { WebError } from 'src/core/utils';
 import { ErrorLoggerHandler } from '../error-logger.handler';
 
 describe('ErrorLoggerHandler', () => {

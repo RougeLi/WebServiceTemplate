@@ -1,7 +1,6 @@
+import { DI } from 'src/core';
 import { ContainerTokens } from 'src/core/constants';
-import { executeOnInitiateHooks } from 'src/core/di';
-import { createWebServer } from 'src/core/server/bootstrap';
-import { registerRoutes } from 'src/core/server/handlers';
+import { createWebServer, registerRoutes } from 'src/core/server';
 import { EnvironmentService } from 'src/core/services';
 import { AppConfigType, AppContainer, WebServer } from 'src/core/types';
 import { IApplication } from './app.types';
@@ -30,7 +29,7 @@ export default class Application implements IApplication {
     this.webServer = await createWebServer(this.container, this.config);
     console.log('Application initialization completed.');
 
-    await executeOnInitiateHooks(this.container);
+    await DI.executeOnInitiateHooks(this.container);
 
     // Register routes
     registerRoutes(this.container, this.webServer);

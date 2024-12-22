@@ -1,10 +1,10 @@
 import { Environment } from 'src/core/constants';
-import { EnvironmentService } from 'src/core/services';
 import {
   PrismaClientOptions,
   PrismaErrorFormat,
   PrismaLogLevels,
 } from 'src/core/types';
+import EnvironmentService from './environment.service';
 
 export default class PrismaConfig {
   public readonly appEnv: Environment;

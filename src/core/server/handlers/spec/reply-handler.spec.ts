@@ -1,6 +1,6 @@
 import { FastifyReply } from 'fastify';
 import { StatusCodes } from 'http-status-codes';
-import { WebError } from 'src/core/utils';
+import { WebError } from 'src/core/server';
 import { ReplyHandler } from '../reply.handler';
 
 describe('ReplyHandler', () => {

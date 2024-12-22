@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { LoggerService } from 'src/core/services';
-import { PrismaConfigService } from 'src/core/services';
 import { IDBService } from 'src/core/types';
 import { DbUtils } from 'src/core/utils';
+import LoggerService from './logger.service';
+import PrismaConfigService from './prisma.config';
 
 const { setupLogging, getConnectMethod, getDisconnectMethod } = DbUtils;
 

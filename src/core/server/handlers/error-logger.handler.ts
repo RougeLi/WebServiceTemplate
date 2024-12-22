@@ -1,7 +1,7 @@
 import { Environment } from 'src/core/constants';
+import { WebError } from 'src/core/server';
 import { EnvironmentService, LoggerService } from 'src/core/services';
 import { AppConfigType } from 'src/core/types';
-import { WebError } from 'src/core/utils';
 
 export class ErrorLoggerHandler {
   private readonly config: AppConfigType;

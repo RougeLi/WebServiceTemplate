@@ -1,6 +1,6 @@
 import { FastifyReply } from 'fastify';
 import { StatusCodes } from 'http-status-codes';
-import { WebError } from 'src/core/utils';
+import { WebError } from 'src/core/server';
 
 export class ReplyHandler {
   private readonly INTERNAL_ERROR_MESSAGE = 'Internal server error';
