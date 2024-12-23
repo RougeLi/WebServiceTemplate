@@ -1,12 +1,12 @@
 services:
   db:
     image: postgres:latest
-    container_name: app-db
+    container_name: line-bot-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: app_db
-      POSTGRES_USER: appUser
-      POSTGRES_PASSWORD: appPassword
+      POSTGRES_DB: line_bot_db
+      POSTGRES_USER: lineBotUser
+      POSTGRES_PASSWORD: lineBotPassword
     volumes:
       - ./db:/var/lib/postgresql/data
     ports:

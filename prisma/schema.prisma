@@ -1,14 +1,195 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
+datasource db_line_bot {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("LINE_BOT_DATABASE_URL")
+}
+
+model WebhookRequest {
+  id          Int      @id @default(autoincrement()) @map("id")
+  destination String   @map("destination") @db_line_bot.VarChar(100)
+  receivedAt  DateTime @default(now()) @map("received_at") @db_line_bot.Timestamptz(6)
+
+  events WebhookEvent[]
+
+  @@map("webhook_requests")
+}
+
+model WebhookEvent {
+  id              Int      @id @default(autoincrement()) @map("id")
+  requestId       Int      @map("request_id")
+  type            String   @map("type") @db_line_bot.VarChar(50)
+  mode            String   @map("mode") @db_line_bot.VarChar(10)
+  timestamp       BigInt   @map("timestamp")
+  source          Json     @map("source")
+  webhookEventId  String   @map("webhook_event_id") @db_line_bot.VarChar(100)
+  deliveryContext Json     @map("delivery_context")
+  createdAt       DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  request WebhookRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  messageEvent           MessageEvent?
+  unsendEvent            UnsendEvent?
+  followEvent            FollowEvent?
+  // unfollowEvent                    UnfollowEvent?
+  joinEvent              JoinEvent?
+  // leaveEvent                       LeaveEvent?
+  memberJoinEvent        MemberJoinEvent?
+  memberLeaveEvent       MemberLeaveEvent?
+  postbackEvent          PostbackEvent?
+  videoPlayCompleteEvent VideoPlayCompleteEvent?
+  beaconEvent            BeaconEvent?
+  accountLinkEvent       AccountLinkEvent?
+
+  @@index([requestId])
+  @@index([type])
+  @@map("webhook_events")
+}
+
+model MessageEvent {
+  id          Int      @id @default(autoincrement()) @map("id")
+  eventId     Int      @unique @map("event_id")
+  messageId   String   @map("message_id") @db_line_bot.VarChar(50)
+  messageType String   @map("message_type") @db_line_bot.VarChar(20)
+  message     Json     @map("message")
+  createdAt   DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("message_events")
+}
+
+model UnsendEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("unsend_events")
+}
+
+model FollowEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("follow_events")
+}
+
+// model UnfollowEvent {
+//   id        Int      @id @default(autoincrement()) @map("id")
+//   eventId   Int      @unique @map("event_id")
+//   detail    Json     @map("detail")
+//   createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+//
+//   event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+//
+//   @@index([eventId])
+//   @@map("unfollow_events")
+// }
+
+model JoinEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("join_events")
+}
+
+// model LeaveEvent {
+//   id        Int      @id @default(autoincrement()) @map("id")
+//   eventId   Int      @unique @map("event_id")
+//   detail    Json     @map("detail")
+//   createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+//
+//   event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+//
+//   @@index([eventId])
+//   @@map("leave_events")
+// }
+
+model MemberJoinEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("member_join_events")
+}
+
+model MemberLeaveEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("member_leave_events")
+}
+
+model PostbackEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("postback_events")
+}
+
+model VideoPlayCompleteEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("video_play_complete_events")
+}
+
+model BeaconEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("beacon_events")
+}
+
+model AccountLinkEvent {
+  id        Int      @id @default(autoincrement()) @map("id")
+  eventId   Int      @unique @map("event_id")
+  detail    Json     @map("detail")
+  createdAt DateTime @default(now()) @map("created_at") @db_line_bot.Timestamptz(6)
+
+  event WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("account_link_events")
 }
