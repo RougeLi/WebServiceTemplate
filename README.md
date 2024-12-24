@@ -236,40 +236,10 @@ This template provides useful pnpm script commands to assist with development an
   pnpm run build
   ```
 
-- **build:watch**: Watches for file changes and automatically recompiles TypeScript files.
-
-  ```bash
-  pnpm run build:watch
-  ```
-
 - **start**: Runs both TypeScript compilation and server with code change monitoring.
 
   ```bash
   pnpm start
-  ```
-
-- **run:watch**: Runs the server in watch mode, automatically restarting on changes.
-
-  ```bash
-  pnpm run run:watch
-  ```
-
-- **prettier:check**: Checks code formatting with Prettier.
-
-  ```bash
-  pnpm run prettier:check
-  ```
-
-- **prettier:fix**: Automatically fixes code formatting issues.
-
-  ```bash
-  pnpm run prettier:fix
-  ```
-
-- **type:check**: Runs TypeScript type checking to ensure code follows type rules.
-
-  ```bash
-  pnpm run type:check
   ```
 
 - **lint**: Runs type checking and linting to ensure code quality.
@@ -278,22 +248,10 @@ This template provides useful pnpm script commands to assist with development an
   pnpm run lint
   ```
 
-- **lint:code**: Uses ESLint to check for potential issues in the code.
-
-  ```bash
-  pnpm run lint:code
-  ```
-
 - **lint:fix**: Automatically fixes formatting and linting issues.
 
   ```bash
   pnpm run lint:fix
-  ```
-
-- **unit-test**: Runs unit tests with Jest, ensuring code functionality.
-
-  ```bash
-  pnpm run unit-test
   ```
 
 - **unit-test:coverage**: Runs tests and generates a coverage report to verify the completeness of the tests.
@@ -315,11 +273,8 @@ APP_NAME=WebServiceTemplate
 # Application runtime environment (development, staging, production)
 APP_ENV=development
 
-# Domain and Swagger path for API documentation and testing
-APP_DOMAIN=http://localhost:3000
-
 # Port number where the service runs, adjustable based on deployment environment
-APP_PORT=3000
+PORT=3000
 ```
 
 ---
@@ -364,8 +319,6 @@ src/
   │   │   │   └── hello.dto.ts
   │   │   ├── model/          # Data models
   │   │   │   └── hello.model.ts
-  │   │   ├── routes/         # Route definitions
-  │   │   │   └── hello.route.ts
   │   │   ├── services/       # Business logic
   │   │   │   └── hello.service.ts
   │   │   ├── spec/           # Unit tests
@@ -373,6 +326,7 @@ src/
   │   │   │   └── ...
   │   │   ├── types/          # Type definitions
   │   │   │   └── hello.types.ts
+  │   │   ├── hello.route.ts  # Route registration
   │   │   ├── hello.module.ts # Module configuration file
   │   │   └── index.ts        # Module exports
   │   └── index.ts            # Module registration and startup
@@ -437,16 +391,12 @@ export class HelloModule extends BaseModule {
 In the `constants` directory, define the `HelloRoutes` and `InjectionTokens` enums.
 
 ```typescript
-// src/modules/hello/constants/hello-routes.ts
-
 export enum HelloRoutes {
   HELLO = '/hello',
 }
 ```
 
 ```typescript
-// src/modules/hello/constants/injection-tokens.ts
-
 export enum InjectionTokens {
   HELLO_ROUTE = 'helloRoute',
   HELLO_CONTROLLER = 'helloController',
@@ -459,12 +409,6 @@ export enum InjectionTokens {
 In the `types` directory, define the types related to the Hello module.
 
 ```typescript
-// src/modules/hello/types/hello.types.ts
-
-import { Static } from '@sinclair/typebox';
-import { FastifyRequest } from 'fastify';
-import { SayHelloQuery } from '../dto/hello.dto';
-
 export type SayHelloQueryType = Static<typeof SayHelloQuery>;
 
 export type SayHelloRequestType = FastifyRequest<{
@@ -475,14 +419,6 @@ export type SayHelloRequestType = FastifyRequest<{
 ### Register Routes
 
 ```typescript
-// src/modules/hello/routes/hello.route.ts
-
-import { BaseRoute } from 'src/core/utils';
-import { HelloController } from '../controllers/hello.controller';
-import { WebServer } from 'src/core/types';
-import { HelloRoutes } from '../constants/hello-routes';
-import { SayHelloSchema } from '../dto/hello.dto';
-
 export class HelloRoute extends BaseRoute {
   constructor(private readonly helloController: HelloController) {
     super();
@@ -501,11 +437,6 @@ export class HelloRoute extends BaseRoute {
 ### Create Models, Services, and Controllers
 
 ```typescript
-// src/modules/hello/controllers/hello.controller.ts
-
-import { HelloService } from '../services/hello.service';
-import { SayHelloRequestType } from '../types/hello.types';
-
 export class HelloController {
   constructor(private readonly helloService: HelloService) {
   }
@@ -515,12 +446,6 @@ export class HelloController {
     return this.helloService.sayHello(query);
   };
 }
-
-// src/modules/hello/services/hello.service.ts
-
-import { LoggerService } from 'src/core/services';
-import { HelloModel } from '../model/hello.model';
-import { SayHelloQueryType } from '../types/hello.types';
 
 export class HelloService {
   constructor(
@@ -543,10 +468,6 @@ export class HelloService {
   }
 }
 
-// src/modules/hello/model/hello.model.ts
-
-import PrismaService from 'src/core/services/prisma.service';
-
 export class HelloModel {
   constructor(private readonly prisma: PrismaService) {
   }
@@ -563,12 +484,6 @@ export class HelloModel {
 ### Define Request and Response Formats for Routes
 
 ```typescript
-// src/modules/hello/dto/hello.dto.ts
-
-import { Type } from '@sinclair/typebox';
-import { StatusCodes } from 'http-status-codes';
-import { CommonSchema } from 'src/core/server';
-
 export const SayHelloQuery = Type.Object({
   name: Type.Optional(
     Type.String({
