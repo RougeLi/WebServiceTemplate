@@ -5,4 +5,5 @@ export type AppConfigType = {
   appEnv: Environment;
   appPort: number;
   serviceToken: string;
+  forcePrismaQueryLog: boolean;
 };

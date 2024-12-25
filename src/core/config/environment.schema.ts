@@ -7,6 +7,11 @@ export const EnvironmentSchema = z.object({
   APP_ENV: z.nativeEnum(Environment).default(Environment.PRODUCTION),
   PORT: z.string().regex(/^\d+$/).default('3000'),
   SERVICE_TOKEN: z.string().default(''),
+  FORCE_PRISMA_QUERY_LOG: z
+    .string()
+    .default('false')
+    .transform((val) => val === 'true')
+    .pipe(z.boolean()),
 });
 
 export const transformEnvironment = (
@@ -16,4 +21,5 @@ export const transformEnvironment = (
   appEnv: environment.APP_ENV,
   appPort: Number.parseInt(environment.PORT, 10),
   serviceToken: environment.SERVICE_TOKEN,
+  forcePrismaQueryLog: environment.FORCE_PRISMA_QUERY_LOG,
 });

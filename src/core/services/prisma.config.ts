@@ -1,5 +1,6 @@
 import { Environment } from 'src/core/constants';
 import {
+  AppConfigType,
   PrismaClientOptions,
   PrismaErrorFormat,
   PrismaLogLevels,
@@ -14,7 +15,7 @@ export default class PrismaConfig {
 
   constructor(private readonly environment: EnvironmentService) {
     this.appEnv = environment.getAppEnv();
-    this.logLevels = this.getLogLevels(this.appEnv);
+    this.logLevels = this.getLogLevels(this.environment.getConfig());
     this.errorFormat = this.getErrorFormat(this.environment.isDevelopment());
     this.prismaClientOptions = {
       log: this.logLevels.map((level) => ({
@@ -25,10 +26,19 @@ export default class PrismaConfig {
     };
   }
 
-  getLogLevels(appEnv: string): PrismaLogLevels {
-    return appEnv === Environment.DEVELOPMENT
-      ? ['query', 'info', 'warn', 'error']
-      : ['info', 'warn', 'error'];
+  getLogLevels({
+    appEnv,
+    forcePrismaQueryLog,
+  }: AppConfigType): PrismaLogLevels {
+    const isDevelopment = appEnv === Environment.DEVELOPMENT;
+
+    const baseLogLevels: PrismaLogLevels = ['info', 'warn', 'error'];
+
+    if (isDevelopment || forcePrismaQueryLog) {
+      return ['query', ...baseLogLevels];
+    }
+
+    return baseLogLevels;
   }
 
   getErrorFormat(isDevelopment: boolean): PrismaErrorFormat {

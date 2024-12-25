@@ -1,6 +1,7 @@
 import { asClass, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
 import { ContainerTokens, Environment } from 'src/core/constants';
+import { AppConfigType } from '../../types';
 import PrismaConfig from '../prisma.config';
 
 describe('PrismaConfig', () => {
@@ -25,26 +26,110 @@ describe('PrismaConfig', () => {
   });
 
   describe('getLogLevels', () => {
-    it('should return the correct log levels for the environment', () => {
-      const logLevels = prismaConfig.getLogLevels(Environment.DEVELOPMENT);
-      expect(logLevels).toEqual(['query', 'info', 'warn', 'error']);
-    });
+    const testCases: Array<{
+      description: string;
+      config: AppConfigType;
+      expectedLogLevels: string[];
+    }> = [
+      {
+        description: 'Development environment without forcePrismaQueryLog',
+        config: {
+          appEnv: Environment.DEVELOPMENT,
+          forcePrismaQueryLog: false,
+          appName: 'TestApp',
+          appPort: 3000,
+          serviceToken: 'token',
+        },
+        expectedLogLevels: ['query', 'info', 'warn', 'error'],
+      },
+      {
+        description: 'Development environment with forcePrismaQueryLog',
+        config: {
+          appEnv: Environment.DEVELOPMENT,
+          forcePrismaQueryLog: true,
+          appName: 'TestApp',
+          appPort: 3000,
+          serviceToken: 'token',
+        },
+        expectedLogLevels: ['query', 'info', 'warn', 'error'],
+      },
+      {
+        description: 'Production environment without forcePrismaQueryLog',
+        config: {
+          appEnv: Environment.PRODUCTION,
+          forcePrismaQueryLog: false,
+          appName: 'TestApp',
+          appPort: 3000,
+          serviceToken: 'token',
+        },
+        expectedLogLevels: ['info', 'warn', 'error'],
+      },
+      {
+        description: 'Production environment with forcePrismaQueryLog',
+        config: {
+          appEnv: Environment.PRODUCTION,
+          forcePrismaQueryLog: true,
+          appName: 'TestApp',
+          appPort: 3000,
+          serviceToken: 'token',
+        },
+        expectedLogLevels: ['query', 'info', 'warn', 'error'],
+      },
+      {
+        description: 'Staging environment without forcePrismaQueryLog',
+        config: {
+          appEnv: Environment.STAGING,
+          forcePrismaQueryLog: false,
+          appName: 'TestApp',
+          appPort: 3000,
+          serviceToken: 'token',
+        },
+        expectedLogLevels: ['info', 'warn', 'error'],
+      },
+      {
+        description: 'Staging environment with forcePrismaQueryLog',
+        config: {
+          appEnv: Environment.STAGING,
+          forcePrismaQueryLog: true,
+          appName: 'TestApp',
+          appPort: 3000,
+          serviceToken: 'token',
+        },
+        expectedLogLevels: ['query', 'info', 'warn', 'error'],
+      },
+    ];
 
-    it('should return the correct log levels for not development environment', () => {
-      const logLevels = prismaConfig.getLogLevels(Environment.STAGING);
-      expect(logLevels).toEqual(['info', 'warn', 'error']);
+    testCases.forEach(({ description, config, expectedLogLevels }) => {
+      it(`should return ${expectedLogLevels} when ${description}`, () => {
+        const logLevels = prismaConfig.getLogLevels(config);
+        expect(logLevels).toEqual(expectedLogLevels);
+      });
     });
   });
 
   describe('getErrorFormat', () => {
-    it('should return pretty error format for development environment', () => {
-      const errorFormat = prismaConfig.getErrorFormat(true);
-      expect(errorFormat).toEqual('pretty');
-    });
+    const testCases: Array<{
+      description: string;
+      isDevelopment: boolean;
+      expectedErrorFormat: 'pretty' | 'minimal';
+    }> = [
+      {
+        description: 'when isDevelopment is true',
+        isDevelopment: true,
+        expectedErrorFormat: 'pretty',
+      },
+      {
+        description: 'when isDevelopment is false',
+        isDevelopment: false,
+        expectedErrorFormat: 'minimal',
+      },
+    ];
 
-    it('should return minimal error format for not development environment', () => {
-      const errorFormat = prismaConfig.getErrorFormat(false);
-      expect(errorFormat).toEqual('minimal');
+    testCases.forEach(({ description, isDevelopment, expectedErrorFormat }) => {
+      it(`should return ${expectedErrorFormat} ${description}`, () => {
+        const errorFormat = prismaConfig.getErrorFormat(isDevelopment);
+        expect(errorFormat).toEqual(expectedErrorFormat);
+      });
     });
   });
 });
