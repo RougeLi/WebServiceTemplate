@@ -23,7 +23,7 @@ const config = {
     'setup-app.ts',
     'application.ts',
     'web-server.ts',
-    'global-containers.ts',
+    'global-di-configs.ts',
     'modules.ts',
   ],
   coverageProvider: 'v8',

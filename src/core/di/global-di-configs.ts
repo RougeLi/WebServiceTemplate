@@ -1,8 +1,8 @@
-import { Services } from 'src/core';
-import { ContainerTokens, InjectionResolverMode } from 'src/core/constants';
 import { AppContainer, GlobalContainerConfigEntries } from 'src/core/types';
+import { ContainerTokens, InjectionResolverMode } from 'src/core/constants';
+import { Services } from 'src/core';
 
-const globalContainerConfigEntries: GlobalContainerConfigEntries = [
+const globalDIConfigs: GlobalContainerConfigEntries = [
   // Environment Service
   {
     containerTokens: ContainerTokens.ENVIRONMENT,
@@ -45,4 +45,4 @@ const globalContainerConfigEntries: GlobalContainerConfigEntries = [
   },
 ];
 
-export default globalContainerConfigEntries;
+export default globalDIConfigs;
