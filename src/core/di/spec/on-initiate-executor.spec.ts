@@ -1,18 +1,5 @@
-import { AppContainer } from 'src/core/types';
+import { AppContainer, GlobalContainerConfigEntries } from 'src/core/types';
 import executeOnInitiateHooks from '../on-initiate-executor';
-
-jest.mock('../global-container.config', () => [
-  {
-    globalContainerConfig: {
-      onInitiate: jest.fn().mockResolvedValue(undefined),
-    },
-  },
-  {
-    globalContainerConfig: {
-      onInitiate: jest.fn().mockRejectedValue(new Error('Test error')),
-    },
-  },
-]);
 
 describe('executeOnInitiateHooks', () => {
   let container: AppContainer;
@@ -26,7 +13,18 @@ describe('executeOnInitiateHooks', () => {
     const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
 
-    await executeOnInitiateHooks(container);
+    await executeOnInitiateHooks(container, [
+      {
+        globalContainerConfig: {
+          onInitiate: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+      {
+        globalContainerConfig: {
+          onInitiate: jest.fn().mockRejectedValue(new Error('Test error')),
+        },
+      },
+    ] as unknown as GlobalContainerConfigEntries);
 
     expect(consoleLogSpy).toHaveBeenCalledWith('Executing onInitiate hook...');
     expect(consoleErrorSpy).toHaveBeenCalledWith(

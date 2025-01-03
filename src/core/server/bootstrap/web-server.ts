@@ -61,7 +61,7 @@ export async function createWebServer(
   });
 
   // Register the default route
-  webServer.all('/', (_request, reply) => {
+  webServer.get('/', (_request, reply) => {
     reply.type('text/html').send(generateDefaultPage(config.appName));
   });
 
