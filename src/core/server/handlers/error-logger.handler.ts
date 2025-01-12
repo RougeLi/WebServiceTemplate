@@ -33,7 +33,7 @@ export class ErrorLoggerHandler {
       case Environment.DEVELOPMENT: {
         return [
           `Error: ${error.message}`,
-          `Status Code: ${error.statusCodes}`,
+          `Status Code: ${error.statusCode}`,
           `Stack: ${error.stack}`,
         ]
           .filter(Boolean)
@@ -43,7 +43,7 @@ export class ErrorLoggerHandler {
       case Environment.STAGING: {
         return [
           `Error: ${error.message}`,
-          `Status Code: ${error.statusCodes}`,
+          `Status Code: ${error.statusCode}`,
         ].join('\n');
       }
 

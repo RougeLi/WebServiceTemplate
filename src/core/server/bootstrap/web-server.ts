@@ -4,7 +4,8 @@ import fastifyRequestContext from '@fastify/request-context';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import Fastify from 'fastify';
+import Fastify, { FastifyError } from 'fastify';
+import { StatusCodes } from 'http-status-codes';
 import { LoggerConfig } from 'src/core/config';
 import { ContainerTokens, Environment } from 'src/core/constants';
 import { EnvironmentService, LoggerService } from 'src/core/services';
@@ -16,6 +17,7 @@ import {
   ReplyHandler,
   getSwaggerConfig,
   getSwaggerUiConfig,
+  BadRequestError,
 } from '../index';
 
 export async function createWebServer(
@@ -50,11 +52,14 @@ export async function createWebServer(
   });
 
   // Error handling
-  webServer.setErrorHandler((error: Error, _request, reply) => {
+  webServer.setErrorHandler<FastifyError>((error, _request, reply) => {
     if (error instanceof WebError) {
       errorLoggerHandler.logError(error);
-      replyHandler.handle(reply, error);
-      return;
+      return replyHandler.handle(reply, error);
+    } else if (error.statusCode === StatusCodes.BAD_REQUEST) {
+      const badRequestError = new BadRequestError(error.message);
+      errorLoggerHandler.logError(badRequestError);
+      return replyHandler.handle(reply, badRequestError);
     }
     errorLoggerHandler.internalError(error);
     replyHandler.handleInternalError(reply);

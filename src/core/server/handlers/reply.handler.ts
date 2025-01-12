@@ -7,7 +7,7 @@ export class ReplyHandler {
 
   handle(reply: FastifyReply, error: WebError) {
     const payload = this.createErrorPayload(error.message);
-    reply.code(error.statusCodes).send(payload);
+    reply.code(error.statusCode).send(payload);
   }
 
   handleInternalError(reply: FastifyReply) {
