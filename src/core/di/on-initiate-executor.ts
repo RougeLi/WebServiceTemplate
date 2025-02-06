@@ -1,7 +1,9 @@
-import { AppContainer } from 'src/core/types';
-import globalContainerConfigEntries from './global-container.config';
+import { AppContainer, GlobalContainerConfigEntries } from 'src/core/types';
 
-async function executeOnInitiateHooks(container: AppContainer): Promise<void> {
+async function executeOnInitiateHooks(
+  container: AppContainer,
+  globalContainerConfigEntries: GlobalContainerConfigEntries,
+): Promise<void> {
   const initTasks = globalContainerConfigEntries
     .map(({ globalContainerConfig }) => globalContainerConfig.onInitiate)
     .filter(

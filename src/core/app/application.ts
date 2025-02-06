@@ -2,7 +2,12 @@ import { DI } from 'src/core';
 import { ContainerTokens } from 'src/core/constants';
 import { createWebServer, registerRoutes } from 'src/core/server';
 import { EnvironmentService } from 'src/core/services';
-import { AppConfigType, AppContainer, WebServer } from 'src/core/types';
+import {
+  AppConfigType,
+  AppContainer,
+  GlobalContainerConfigEntries,
+  WebServer,
+} from 'src/core/types';
 import { IApplication } from './app.types';
 
 export default class Application implements IApplication {
@@ -10,7 +15,10 @@ export default class Application implements IApplication {
   private readonly config: AppConfigType;
   private webServer!: WebServer;
 
-  constructor(private readonly container: AppContainer) {
+  constructor(
+    private readonly container: AppContainer,
+    private readonly globalContainerConfigEntries: GlobalContainerConfigEntries,
+  ) {
     this.environment = this.container.resolve<EnvironmentService>(
       ContainerTokens.ENVIRONMENT,
     );
@@ -29,7 +37,10 @@ export default class Application implements IApplication {
     this.webServer = await createWebServer(this.container, this.config);
     console.log('Application initialization completed.');
 
-    await DI.executeOnInitiateHooks(this.container);
+    await DI.executeOnInitiateHooks(
+      this.container,
+      this.globalContainerConfigEntries,
+    );
 
     // Register routes
     registerRoutes(this.container, this.webServer);
@@ -40,6 +51,5 @@ export default class Application implements IApplication {
     const host = '::';
     const port = this.config.appPort;
     await this.webServer.listen({ host, port });
-    console.log(`Application started on ${host}:${port}.`);
   }
 }

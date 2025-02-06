@@ -1,26 +1,43 @@
 import { diContainerClassic } from '@fastify/awilix';
-import { loadEnvironment, DI } from 'src/core';
-import { AppContainer, IModule } from 'src/core/types';
+import { loadEnvironment, makeContainerRegistration } from 'src/core';
+import { initializeContainer } from 'src/core/di';
+import {
+  AppContainer,
+  GlobalContainerConfigEntries,
+  IModule,
+} from 'src/core/types';
 import { IApplication } from './app.types';
 import Application from './application';
-import { initializeContainer } from './di-container';
 
 export default async function setupApp(
+  globalContainerConfigEntries: GlobalContainerConfigEntries,
   modules: IModule[],
 ): Promise<IApplication> {
   loadEnvironment();
 
   const container = initializeContainer(diContainerClassic);
 
-  registerContainers(container);
+  registerContainers(container, globalContainerConfigEntries);
 
   registerModules(modules, container);
 
-  return new Application(container);
+  return new Application(container, globalContainerConfigEntries);
 }
 
-function registerContainers(container: AppContainer): void {
-  for (const globalContainer of DI.globalContainers) {
+function registerContainers(
+  container: AppContainer,
+  globalContainerConfigEntries: GlobalContainerConfigEntries,
+): void {
+  const globalContainers = globalContainerConfigEntries.map(
+    ({ containerTokens, globalContainerConfig }) =>
+      makeContainerRegistration(
+        containerTokens,
+        globalContainerConfig.service,
+        globalContainerConfig.mode,
+      ),
+  );
+
+  for (const globalContainer of globalContainers) {
     const [token, resolver] = globalContainer;
     container.register(token, resolver);
   }
