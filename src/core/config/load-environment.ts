@@ -1,16 +1,15 @@
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 export function loadEnvironment(): void {
-  if (process.env.IS_DOCKER) {
-    console.log('Running inside Docker, skipping .env loading');
+  if (!fs.existsSync('.env')) {
+    console.log('.env file does not exist, skipping dotenv configuration.');
     return;
   }
 
-  const result: dotenv.DotenvConfigOutput = dotenv.config();
-
+  const result = dotenv.config();
   if (result.error) {
     throw result.error;
   }
-
   console.log('Environment variables loaded from .env file');
 }
