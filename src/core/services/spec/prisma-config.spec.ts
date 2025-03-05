@@ -36,10 +36,7 @@ describe('PrismaConfig', () => {
         config: {
           appEnv: Environment.DEVELOPMENT,
           forcePrismaQueryLog: false,
-          appName: 'TestApp',
-          appPort: 3000,
-          serviceToken: 'token',
-        },
+        } as AppConfigType,
         expectedLogLevels: ['query', 'info', 'warn', 'error'],
       },
       {
@@ -47,10 +44,7 @@ describe('PrismaConfig', () => {
         config: {
           appEnv: Environment.DEVELOPMENT,
           forcePrismaQueryLog: true,
-          appName: 'TestApp',
-          appPort: 3000,
-          serviceToken: 'token',
-        },
+        } as AppConfigType,
         expectedLogLevels: ['query', 'info', 'warn', 'error'],
       },
       {
@@ -58,10 +52,7 @@ describe('PrismaConfig', () => {
         config: {
           appEnv: Environment.PRODUCTION,
           forcePrismaQueryLog: false,
-          appName: 'TestApp',
-          appPort: 3000,
-          serviceToken: 'token',
-        },
+        } as AppConfigType,
         expectedLogLevels: ['info', 'warn', 'error'],
       },
       {
@@ -69,10 +60,7 @@ describe('PrismaConfig', () => {
         config: {
           appEnv: Environment.PRODUCTION,
           forcePrismaQueryLog: true,
-          appName: 'TestApp',
-          appPort: 3000,
-          serviceToken: 'token',
-        },
+        } as AppConfigType,
         expectedLogLevels: ['query', 'info', 'warn', 'error'],
       },
       {
@@ -80,10 +68,7 @@ describe('PrismaConfig', () => {
         config: {
           appEnv: Environment.STAGING,
           forcePrismaQueryLog: false,
-          appName: 'TestApp',
-          appPort: 3000,
-          serviceToken: 'token',
-        },
+        } as AppConfigType,
         expectedLogLevels: ['info', 'warn', 'error'],
       },
       {
@@ -91,10 +76,7 @@ describe('PrismaConfig', () => {
         config: {
           appEnv: Environment.STAGING,
           forcePrismaQueryLog: true,
-          appName: 'TestApp',
-          appPort: 3000,
-          serviceToken: 'token',
-        },
+        } as AppConfigType,
         expectedLogLevels: ['query', 'info', 'warn', 'error'],
       },
     ];
