@@ -10,13 +10,15 @@
 - **Modular Design:** Separates core functionalities from business modules for easy maintenance and scalability.
 - **Simplified Workflow:** Offers rich script commands to simplify development, testing, and deployment.
 - **Enhanced Development Efficiency:** Supports hot reloading and automatic compilation.
-- **Integrated Core Functionalities:** Includes built-in dependency injection, configuration management, error handling, and more.
+- **Integrated Core Functionalities:** Includes built-in dependency injection, configuration management, error handling,
+  and more.
 
 **Summary:**
+
 - [Installation](#installation)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
-  - [Core Module (`core`)](#core-module-core)
+    - [Core Module (`core`)](#core-module-core)
 - [Script Commands](#script-commands)
 - [Environment Variables](#environment-variables)
 - [Development Workflow](#development-workflow)
@@ -77,7 +79,9 @@
 
 ## Usage
 
-Use this template as the base for your web service. The framework handles global configurations and dependency injection. You can focus on developing your business modules in the `src/modules` directory. For debugging and deployment, follow your standard Node.js application workflows.
+Use this template as the base for your web service. The framework handles global configurations and dependency
+injection. You can focus on developing your business modules in the `src/modules` directory. For debugging and
+deployment, follow your standard Node.js application workflows.
 
 ---
 
@@ -144,7 +148,8 @@ The `core` directory contains the essential framework components:
 
 ### Business Modules
 
-All business or feature modules are organized under `src/modules`. Each module is self-contained and registers its own dependencies. This design improves clarity and allows modules to be later extracted as independent packages.
+All business or feature modules are organized under `src/modules`. Each module is self-contained and registers its own
+dependencies. This design improves clarity and allows modules to be later extracted as independent packages.
 
 ---
 
@@ -155,13 +160,13 @@ The template provides the following useful `pnpm` script commands:
 - **install:ci**: Install dependencies with a frozen lockfile (ideal for CI).
 
   ```bash
-  pnpm install --frozen-lockfile
+  pnpm run install:ci
   ```
 
 - **install:dev**: Install dependencies without freezing the lockfile (for development).
 
   ```bash
-  pnpm install --no-frozen-lockfile
+  pnpm run install:dev
   ```
 
 - **build**: Compile TypeScript files.
@@ -188,10 +193,10 @@ The template provides the following useful `pnpm` script commands:
   pnpm run lint:fix
   ```
 
-- **unit-test:coverage**: Run unit tests and generate a coverage report.
+- **unittest:coverage**: Run unit tests and generate a coverage report.
 
   ```bash
-  pnpm run unit-test:coverage
+  pnpm run unittest:coverage
   ```
 
 ---
@@ -233,7 +238,7 @@ PORT=3000
    Run unit tests and generate coverage reports:
 
    ```bash
-   pnpm run unit-test:coverage
+   pnpm run unittest:coverage
    ```
 
 ---
@@ -297,16 +302,16 @@ export class HelloModule extends BaseModule {
       HelloRoute,
       InjectionResolverMode.SINGLETON,
     )
-    .registerDependency(
-      InjectionTokens.HELLO_CONTROLLER,
-      HelloController,
-      InjectionResolverMode.SINGLETON,
-    )
-    .registerDependency(
-      InjectionTokens.HELLO_SERVICE,
-      HelloService,
-      InjectionResolverMode.SINGLETON,
-    );
+      .registerDependency(
+        InjectionTokens.HELLO_CONTROLLER,
+        HelloController,
+        InjectionResolverMode.SINGLETON,
+      )
+      .registerDependency(
+        InjectionTokens.HELLO_SERVICE,
+        HelloService,
+        InjectionResolverMode.SINGLETON,
+      );
   }
 }
 ```
@@ -337,9 +342,9 @@ export class HelloModule extends BaseModule {
    Make sure your Prisma models are defined in `schema.prisma` before running migrations.
 
    ```bash
-   npx prisma migrate dev
+   pnpm run prisma:migrate
    ```
    or generate the Prisma client:
    ```bash
-   npx prisma generate
+   pnpm run prisma:generate
    ```

@@ -1,14 +1,14 @@
 {
   "name": "web-service-template",
   "version": "1.0.0",
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
-  },
   "description": "The template for developing web service",
+  "author": "Ru <banagher.links448@gmail.com>",
+  "license": "ISC",
   "scripts": {
     "install:ci": "pnpm install --frozen-lockfile",
     "install:dev": "pnpm install --no-frozen-lockfile",
-    "build": "tsc -p tsconfig.json && pnpm run generate",
+    "update:dependencies": "pnpm update --latest",
+    "build": "tsc -p tsconfig.json && pnpm run prisma:generate",
     "build:watch": "tsc -p tsconfig.json --watch",
     "run:watch": "cross-env NODE_PATH=./build nodemon -r source-map-support/register --watch ./build build/index.js",
     "start": "concurrently -n \"TS,Server\" -c \"yellow.bold,green.bold\" \"pnpm run build:watch\" \"pnpm run run:watch\"",
@@ -18,16 +18,16 @@
     "lint:code": "eslint \"./**/*.{js,ts}\" --quiet",
     "lint": "pnpm run type:check && pnpm run prettier:check && pnpm run lint:code",
     "lint:fix": "pnpm run prettier:fix && pnpm run lint:code --fix",
-    "unit-test": "jest",
-    "unit-test:coverage": "jest --coverage",
-    "generate": "prisma generate",
-    "migrate": "prisma migrate dev",
-    "deploy": "prisma migrate deploy",
-    "reset": "prisma migrate reset"
+    "unittest": "jest",
+    "unittest:coverage": "jest --coverage",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:reset": "prisma migrate reset"
   },
-  "keywords": [],
-  "author": "Ru <banagher.links448@gmail.com>",
-  "license": "ISC",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "dependencies": {
     "@fastify/awilix": "^7.0.0",
     "@fastify/env": "^5.0.2",
