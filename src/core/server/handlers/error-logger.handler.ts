@@ -19,7 +19,7 @@ export class ErrorLoggerHandler {
   }
 
   internalError(error: Error) {
-    this.logger.error(`${error.stack}`);
+    this.logger.error(error);
   }
 
   /**

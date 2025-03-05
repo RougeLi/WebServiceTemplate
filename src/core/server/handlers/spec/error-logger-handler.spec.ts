@@ -123,8 +123,6 @@ describe('ErrorLoggerHandler', () => {
 
     errorLoggerHandler.internalError(error);
 
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Error: Internal error'),
-    );
+    expect(logSpy).toHaveBeenCalledWith(error);
   });
 });
