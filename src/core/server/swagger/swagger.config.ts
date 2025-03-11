@@ -15,21 +15,15 @@ export const getSwaggerUiConfig = (): FastifySwaggerUiOptions => ({
 export const getSwaggerConfig = (config: AppConfigType): SwaggerOptions => {
   const securitySchemes: SecuritySchemes = {};
 
-  if (config.serviceToken) {
+  const { serviceAuthName } = config;
+  if (serviceAuthName) {
     securitySchemes['ServiceAuth'] = {
       type: 'apiKey',
       description: 'Service APIs Authorization',
-      name: 'service-token',
+      name: serviceAuthName,
       in: 'header',
     };
   }
-
-  securitySchemes['BearerAuth'] = {
-    type: 'http',
-    description: 'JWT Authorization',
-    scheme: 'bearer',
-    bearerFormat: 'JWT',
-  };
 
   return {
     openapi: {

@@ -6,7 +6,8 @@ export const EnvironmentSchema = z.object({
   APP_NAME: z.string().default('ServiceTemplate'),
   APP_ENV: z.nativeEnum(Environment).default(Environment.PRODUCTION),
   PORT: z.string().regex(/^\d+$/).default('3000'),
-  SERVICE_TOKEN: z.string().default(''),
+  SERVICE_AUTH_NAME: z.string().default('x-secret-key'),
+  SECRET_KEY: z.string().default('ServiceTemplate'),
   FORCE_PRISMA_QUERY_LOG: z
     .string()
     .default('false')
@@ -20,6 +21,7 @@ export const transformEnvironment = (
   appName: environment.APP_NAME,
   appEnv: environment.APP_ENV,
   appPort: Number.parseInt(environment.PORT, 10),
-  serviceToken: environment.SERVICE_TOKEN,
+  serviceAuthName: environment.SERVICE_AUTH_NAME,
+  secretKey: environment.SECRET_KEY,
   forcePrismaQueryLog: environment.FORCE_PRISMA_QUERY_LOG,
 });
