@@ -32,6 +32,12 @@ const setupServiceTest = <T>(
         ],
       },
       logLevels: ['query', 'info', 'warn', 'error'],
+      formatQueryEventOptions: {
+        forceQueryLog: true,
+        maxStrLen: 1000,
+        enableJsonParse: true,
+        delimiter: ',',
+      },
     };
 
     container.register(
@@ -46,6 +52,7 @@ const setupServiceTest = <T>(
     expect(DbUtils.setupLogging).toHaveBeenCalledWith(
       expect.any(LoggerService),
       commonPrismaConfig.logLevels,
+      commonPrismaConfig.formatQueryEventOptions,
       serviceInstance,
     );
     expect(DbUtils.getConnectMethod).toHaveBeenCalledWith(

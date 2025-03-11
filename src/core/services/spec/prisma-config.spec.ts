@@ -114,4 +114,57 @@ describe('PrismaConfig', () => {
       });
     });
   });
+
+  describe('getFormatQueryEventOptions', () => {
+    const testCases: Array<{
+      description: string;
+      config: AppConfigType;
+      expectedOptions: {
+        forceQueryLog: boolean;
+        maxStrLen: number | undefined;
+        enableJsonParse: boolean | undefined;
+        delimiter: string | undefined;
+      };
+    }> = [
+      {
+        description:
+          'should return correct options when forcePrismaQueryLog is false',
+        config: {
+          forcePrismaQueryLog: false,
+          prismaQueryMaxStrLen: 500,
+          prismaQueryEnableJsonParse: false,
+          prismaQueryDelimiter: ',',
+        } as AppConfigType,
+        expectedOptions: {
+          forceQueryLog: false,
+          maxStrLen: 500,
+          enableJsonParse: false,
+          delimiter: ',',
+        },
+      },
+      {
+        description:
+          'should return correct options when forcePrismaQueryLog is true',
+        config: {
+          forcePrismaQueryLog: true,
+          prismaQueryMaxStrLen: 1000,
+          prismaQueryEnableJsonParse: true,
+          prismaQueryDelimiter: '|',
+        } as AppConfigType,
+        expectedOptions: {
+          forceQueryLog: true,
+          maxStrLen: 1000,
+          enableJsonParse: true,
+          delimiter: '|',
+        },
+      },
+    ];
+
+    testCases.forEach(({ description, config, expectedOptions }) => {
+      it(description, () => {
+        const options = prismaConfig.getFormatQueryEventOptions(config);
+        expect(options).toEqual(expectedOptions);
+      });
+    });
+  });
 });
