@@ -1,6 +1,7 @@
 import { Environment } from 'src/core/constants';
 import {
   AppConfigType,
+  FormatQueryEventOptions,
   PrismaClientOptions,
   PrismaErrorFormat,
   PrismaLogLevels,
@@ -12,11 +13,14 @@ export default class PrismaConfig {
   public readonly logLevels: PrismaLogLevels;
   public readonly errorFormat: PrismaErrorFormat;
   public readonly prismaClientOptions: PrismaClientOptions;
+  public readonly formatQueryEventOptions: FormatQueryEventOptions;
 
   constructor(private readonly environment: EnvironmentService) {
-    this.appEnv = environment.getAppEnv();
-    this.logLevels = this.getLogLevels(this.environment.getConfig());
-    this.errorFormat = this.getErrorFormat(this.environment.isDevelopment());
+    const config = this.environment.getConfig();
+    const isDevelopment = this.environment.isDevelopment();
+    this.appEnv = config.appEnv;
+    this.logLevels = this.getLogLevels(config);
+    this.errorFormat = this.getErrorFormat(isDevelopment);
     this.prismaClientOptions = {
       log: this.logLevels.map((level) => ({
         emit: 'event',
@@ -24,6 +28,7 @@ export default class PrismaConfig {
       })),
       errorFormat: this.errorFormat,
     };
+    this.formatQueryEventOptions = this.getFormatQueryEventOptions(config);
   }
 
   getLogLevels({
@@ -43,5 +48,23 @@ export default class PrismaConfig {
 
   getErrorFormat(isDevelopment: boolean): PrismaErrorFormat {
     return isDevelopment ? 'pretty' : 'minimal';
+  }
+
+  getFormatQueryEventOptions({
+    forcePrismaQueryLog,
+    prismaQueryMaxStrLen,
+    prismaQueryEnableJsonParse,
+    prismaQueryDelimiter,
+  }: AppConfigType): FormatQueryEventOptions {
+    const forceQueryLog = forcePrismaQueryLog;
+    const maxStrLen = prismaQueryMaxStrLen;
+    const enableJsonParse = prismaQueryEnableJsonParse;
+    const delimiter = prismaQueryDelimiter;
+    return {
+      forceQueryLog,
+      maxStrLen,
+      enableJsonParse,
+      delimiter,
+    };
   }
 }

@@ -10,6 +10,13 @@ describe('DbUtils', () => {
   let loggerMock: jest.Mocked<LoggerService>;
   let prismaMock: jest.Mocked<CustomPrismaClient>;
 
+  const defaultFormatOptions = {
+    forceQueryLog: false,
+    maxStrLen: 1000,
+    enableJsonParse: true,
+    delimiter: '\n',
+  };
+
   beforeEach(() => {
     loggerMock = {
       debug: jest.fn(),
@@ -28,7 +35,12 @@ describe('DbUtils', () => {
   describe('setupLogging', () => {
     it('should setup query logging when log level includes "query"', () => {
       const logLevels: PrismaLogLevels = ['query'];
-      DbUtils.setupLogging(loggerMock, logLevels, prismaMock);
+      DbUtils.setupLogging(
+        loggerMock,
+        logLevels,
+        defaultFormatOptions,
+        prismaMock,
+      );
       expect(prismaMock.$on).toHaveBeenCalledWith(
         'query',
         expect.any(Function),
@@ -37,23 +49,86 @@ describe('DbUtils', () => {
 
     it('should setup info logging when log level includes "info"', () => {
       const logLevels: PrismaLogLevels = ['info'];
-      DbUtils.setupLogging(loggerMock, logLevels, prismaMock);
+      DbUtils.setupLogging(
+        loggerMock,
+        logLevels,
+        defaultFormatOptions,
+        prismaMock,
+      );
       expect(prismaMock.$on).toHaveBeenCalledWith('info', expect.any(Function));
     });
 
     it('should setup warn logging when log level includes "warn"', () => {
       const logLevels: PrismaLogLevels = ['warn'];
-      DbUtils.setupLogging(loggerMock, logLevels, prismaMock);
+      DbUtils.setupLogging(
+        loggerMock,
+        logLevels,
+        defaultFormatOptions,
+        prismaMock,
+      );
       expect(prismaMock.$on).toHaveBeenCalledWith('warn', expect.any(Function));
     });
 
     it('should setup error logging when log level includes "error"', () => {
       const logLevels: PrismaLogLevels = ['error'];
-      DbUtils.setupLogging(loggerMock, logLevels, prismaMock);
+      DbUtils.setupLogging(
+        loggerMock,
+        logLevels,
+        defaultFormatOptions,
+        prismaMock,
+      );
       expect(prismaMock.$on).toHaveBeenCalledWith(
         'error',
         expect.any(Function),
       );
+    });
+
+    it('should use logger.info for query logging when forceQueryLog is true', () => {
+      const logLevels: PrismaLogLevels = ['query'];
+      const options = { ...defaultFormatOptions, forceQueryLog: true };
+      DbUtils.setupLogging(loggerMock, logLevels, options, prismaMock);
+
+      // Extract the registered callback for 'query'
+      const queryCallback = (prismaMock.$on as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'query',
+      )?.[1];
+      expect(queryCallback).toBeDefined();
+
+      // Simulate a query event
+      const event: PrismaQueryEvent = {
+        timestamp: new Date(),
+        query: 'SELECT * FROM users',
+        params: JSON.stringify({ foo: 'bar' }),
+        duration: 123,
+        target: 'db',
+      };
+      queryCallback && queryCallback(event);
+      // When forceQueryLog is true, the callback logs with logger.info
+      expect(loggerMock.info).toHaveBeenCalled();
+    });
+
+    it('should use logger.debug for query logging when forceQueryLog is false', () => {
+      const logLevels: PrismaLogLevels = ['query'];
+      const options = { ...defaultFormatOptions, forceQueryLog: false };
+      DbUtils.setupLogging(loggerMock, logLevels, options, prismaMock);
+
+      // Extract the registered callback for 'query'
+      const queryCallback = (prismaMock.$on as jest.Mock).mock.calls.find(
+        (call) => call[0] === 'query',
+      )?.[1];
+      expect(queryCallback).toBeDefined();
+
+      // Simulate a query event
+      const event: PrismaQueryEvent = {
+        timestamp: new Date(),
+        query: 'SELECT * FROM users',
+        params: JSON.stringify({ foo: 'bar' }),
+        duration: 123,
+        target: 'db',
+      };
+      queryCallback && queryCallback(event);
+      // When forceQueryLog is false, the callback logs with logger.debug
+      expect(loggerMock.debug).toHaveBeenCalled();
     });
   });
 
@@ -109,7 +184,6 @@ describe('DbUtils', () => {
       };
 
       const result = callFormat(event, 1000, false);
-
       expect(result).toContain('Query executed in 10 ms:');
       expect(result).toContain('INSERT INTO table');
       expect(result).toContain('Params: {"foo":"bar","baz":123}');
@@ -126,7 +200,6 @@ describe('DbUtils', () => {
       };
 
       const result = callFormat(event);
-
       expect(result).toContain('Query executed in 999 ms:');
       expect(result).toContain('SELECT big_column FROM table');
       expect(result).toContain('... (truncated)');
@@ -144,7 +217,6 @@ describe('DbUtils', () => {
       };
 
       const result = callFormat(event);
-
       expect(result).toContain('Query executed in 42 ms:');
       expect(result).toContain('DELETE FROM table');
       expect(result).toContain('... (truncated)');
@@ -186,13 +258,10 @@ describe('DbUtils', () => {
         .mockResolvedValueOnce(undefined);
 
       const connectPromise = connectMethod();
-
-      // Wait for the promise queue
+      // Wait for the promise queue and simulate backoff delay
       await Promise.resolve();
-      // Run the pending timers -> Simulate backoff time
       jest.runOnlyPendingTimers();
       await Promise.resolve();
-
       await connectPromise;
 
       expect(prismaMock.$connect).toHaveBeenCalledTimes(2);
@@ -215,7 +284,6 @@ describe('DbUtils', () => {
       prismaMock.$connect.mockRejectedValueOnce(authError);
 
       await expect(connectMethod()).rejects.toThrow(authError);
-
       expect(loggerMock.info).toHaveBeenCalledWith(
         'Connecting to the database...',
       );

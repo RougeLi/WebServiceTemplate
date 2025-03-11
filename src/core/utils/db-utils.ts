@@ -1,5 +1,6 @@
 import {
   CustomPrismaClient,
+  FormatQueryEventOptions,
   ILoggerService,
   PrismaLogLevels,
   PrismaQueryEvent,
@@ -19,16 +20,26 @@ const MAX_STRING_LENGTH = 1000;
 function setupLogging(
   logger: ILoggerService,
   logLevels: PrismaLogLevels,
+  {
+    forceQueryLog,
+    maxStrLen,
+    enableJsonParse,
+    delimiter,
+  }: FormatQueryEventOptions,
   prisma: CustomPrismaClient,
-  maxStrLen: number = MAX_STRING_LENGTH,
-  enableJsonParse: boolean = true,
 ): void {
   logLevels.forEach((level) => {
     switch (level) {
       case LogLevel.query:
-        prisma.$on(LogLevel.query, (event) =>
-          logger.debug(formatQueryEvent(maxStrLen, enableJsonParse)(event)),
-        );
+        prisma.$on(LogLevel.query, (event) => {
+          forceQueryLog
+            ? logger.info(
+                formatQueryEvent(maxStrLen, enableJsonParse, delimiter)(event),
+              )
+            : logger.debug(
+                formatQueryEvent(maxStrLen, enableJsonParse, delimiter)(event),
+              );
+        });
         return;
       case LogLevel.info:
         prisma.$on(LogLevel.info, (event) => logger.info(event));
@@ -44,8 +55,9 @@ function setupLogging(
 }
 
 export function formatQueryEvent(
-  maxStringLength: number,
-  enableJsonParse: boolean,
+  maxStringLength: number = MAX_STRING_LENGTH,
+  enableJsonParse: boolean = true,
+  delimiter = '\n',
 ): (event: PrismaQueryEvent) => string {
   return (event: PrismaQueryEvent) => {
     const { query, params, duration } = event;
@@ -53,14 +65,11 @@ export function formatQueryEvent(
       'Query executed in ',
       duration,
       ' ms:',
-      '\n',
+      delimiter,
       query,
-      '\n',
+      delimiter,
       'Params: ',
-      formatParams(params, {
-        maxStringLength,
-        enableJsonParse,
-      }),
+      formatParams(params, { maxStringLength, enableJsonParse }),
     ].join('');
   };
 }

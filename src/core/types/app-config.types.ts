@@ -6,5 +6,8 @@ export type AppConfigType = {
   appPort: number;
   serviceAuthName: string;
   secretKey: string;
-  forcePrismaQueryLog: boolean;
+  forcePrismaQueryLog?: boolean;
+  prismaQueryMaxStrLen?: number;
+  prismaQueryEnableJsonParse?: boolean;
+  prismaQueryDelimiter?: string;
 };
