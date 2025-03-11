@@ -16,7 +16,12 @@ export default class PrismaService extends PrismaClient implements IDBService {
   ) {
     super(prismaConfig.prismaClientOptions);
 
-    setupLogging(logger, prismaConfig.logLevels, this);
+    setupLogging(
+      logger,
+      prismaConfig.logLevels,
+      prismaConfig.formatQueryEventOptions,
+      this,
+    );
     this.connect = getConnectMethod(logger, this);
     this.disconnect = getDisconnectMethod(logger, this);
   }

@@ -27,3 +27,10 @@ export type CustomPrismaClient = {
   $connect(): Promise<void>;
   $disconnect(): Promise<void>;
 };
+
+export type FormatQueryEventOptions = {
+  forceQueryLog?: boolean;
+  maxStrLen?: number;
+  enableJsonParse?: boolean;
+  delimiter?: string;
+};
