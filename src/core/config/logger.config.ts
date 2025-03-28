@@ -10,8 +10,9 @@ const developmentLogger: LoggerOptions = {
       return { url, method };
     },
     res(reply: FastifyReply) {
-      const { statusCode, sent } = reply;
-      return { statusCode, sent };
+      const { statusCode, sent, request } = reply;
+      const { params, query, body } = request;
+      return { statusCode, sent, params, query, body };
     },
   },
   transport: {
@@ -23,12 +24,13 @@ const stagingLogger: LoggerOptions = {
   level: 'info',
   serializers: {
     req(request: FastifyRequest) {
-      const { url, method, headers } = request;
-      return { url, method, headers };
+      const { url, method, ip, headers } = request;
+      return { url, method, ip, headers };
     },
     res(reply: FastifyReply) {
-      const { statusCode, sent } = reply;
-      return { statusCode, sent };
+      const { statusCode, sent, request } = reply;
+      const { params, query, body } = request;
+      return { statusCode, sent, params, query, body };
     },
   },
   transport: {
@@ -43,16 +45,17 @@ const productionLogger: LoggerOptions = {
   level: 'info',
   serializers: {
     req(request: FastifyRequest) {
-      const { url, method } = request;
-      return { url, method };
+      const { url, method, ip } = request;
+      return { url, method, ip };
     },
     res(reply: FastifyReply) {
-      const { statusCode, sent } = reply;
-      return { statusCode, sent };
+      const { statusCode, sent, request } = reply;
+      const { params, query, body } = request;
+      return { statusCode, sent, params, query, body };
     },
   },
   redact: {
-    paths: ['req.headers.authorization', 'req.headers["service-token"]'],
+    paths: ['req.headers.authorization'],
     remove: false,
   },
   transport: {
