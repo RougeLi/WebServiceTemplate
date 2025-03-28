@@ -10,8 +10,9 @@ const developmentLogger: LoggerOptions = {
       return { url, method };
     },
     res(reply: FastifyReply) {
-      const { statusCode, sent } = reply;
-      return { statusCode, sent };
+      const { statusCode, sent, request } = reply;
+      const { params, query, body } = request;
+      return { statusCode, sent, params, query, body };
     },
   },
   transport: {
@@ -23,19 +24,28 @@ const stagingLogger: LoggerOptions = {
   level: 'info',
   serializers: {
     req(request: FastifyRequest) {
-      const { url, method, headers } = request;
-      return { url, method, headers };
+      const { id, url, method, host } = request;
+      return { id, url, method, host };
     },
     res(reply: FastifyReply) {
-      const { statusCode, sent } = reply;
-      return { statusCode, sent };
+      const { statusCode, sent, request } = reply;
+      const { url, method, params, query, body, headers, hostname } = request;
+      return {
+        statusCode,
+        sent,
+        url,
+        method,
+        params,
+        query,
+        body,
+        headers,
+        hostname,
+      };
     },
   },
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      singleLine: true,
-    },
+  redact: {
+    paths: ['req.headers.authorization'],
+    remove: false,
   },
 };
 
@@ -43,23 +53,28 @@ const productionLogger: LoggerOptions = {
   level: 'info',
   serializers: {
     req(request: FastifyRequest) {
-      const { url, method } = request;
-      return { url, method };
+      const { id, url, method, hostname } = request;
+      return { id, url, method, hostname };
     },
     res(reply: FastifyReply) {
-      const { statusCode, sent } = reply;
-      return { statusCode, sent };
+      const { statusCode, sent, request } = reply;
+      const { url, method, params, query, body, headers, hostname } = request;
+      return {
+        statusCode,
+        sent,
+        url,
+        method,
+        params,
+        query,
+        body,
+        headers,
+        hostname,
+      };
     },
   },
   redact: {
-    paths: ['req.headers.authorization', 'req.headers["service-token"]'],
+    paths: ['req.headers.authorization'],
     remove: false,
-  },
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      singleLine: true,
-    },
   },
 };
 
