@@ -1,1 +1,1 @@
-export { SecuritySchemes } from './swagger.types';
+export type { SecuritySchemes } from './swagger.types';

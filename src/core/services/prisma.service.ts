@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '.prisma/client';
 import { IDBService } from 'src/core/types';
 import { DbUtils } from 'src/core/utils';
 import LoggerService from './logger.service';

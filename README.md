@@ -95,7 +95,7 @@ The project follows a clear separation between framework core components and bus
 ├── package.json
 ├── tsconfig.json
 ├── tsconfig.eslint.json
-├── eslint.config.js
+├── eslint.config.mjs
 ├── jest.config.js
 ├── pnpm-lock.yaml
 ├── node_modules/

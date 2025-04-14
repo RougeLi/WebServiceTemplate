@@ -1,4 +1,9 @@
-module.exports = [
+import parser from '@typescript-eslint/parser';
+import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
+import unicorn from 'eslint-plugin-unicorn';
+import importPlugin from 'eslint-plugin-import';
+
+export default [
   {
     files: [
       'src/**/*.ts',
@@ -8,7 +13,7 @@ module.exports = [
       'index.ts',
     ],
     languageOptions: {
-      parser: require('@typescript-eslint/parser'),
+      parser,
       parserOptions: {
         project: './tsconfig.eslint.json',
       },
@@ -16,9 +21,9 @@ module.exports = [
       sourceType: 'module',
     },
     plugins: {
-      '@typescript-eslint': require('@typescript-eslint/eslint-plugin'),
-      unicorn: require('eslint-plugin-unicorn'),
-      import: require('eslint-plugin-import'),
+      '@typescript-eslint': typescriptEslintPlugin,
+      unicorn,
+      import: importPlugin,
     },
     rules: {
       'no-return-await': 'off',
