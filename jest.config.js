@@ -41,6 +41,14 @@ const config = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.spec.ts'],
   testEnvironment: 'node',
+  transform: {
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.spec.json',
+      },
+    ],
+  },
 };
 
 export default config;
