@@ -34,7 +34,9 @@ export async function createWebServer(
   loggerService.init(webServer.log);
 
   // Resolve EnvironmentService
-  const environmentService = container.resolve<EnvironmentService>(ContainerTokens.ENVIRONMENT);
+  const environmentService = container.resolve<EnvironmentService>(
+    ContainerTokens.ENVIRONMENT,
+  );
 
   // Instantiate reply and error handlers
   const replyHandler = new ReplyHandler();
