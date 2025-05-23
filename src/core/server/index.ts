@@ -4,3 +4,4 @@ export * from './errors';
 export * from './swagger';
 export * from './handlers';
 export * from './bootstrap';
+export * from './modules';

@@ -110,8 +110,13 @@ The project follows a clear separation between framework core components and bus
 │   │   │   ├── on-initiate-executor.ts
 │   │   │   └── index.ts
 │   │   ├── server/         # Web server configuration, routing, and error handling
+│   │   │   ├── bootstrap/  # Server initialization
+│   │   │   ├── modules/    # Startup modules (e.g., WebServerModule)
+│   │   │   └── ...
 │   │   ├── services/       # Core services (e.g., Logger, Environment)
 │   │   ├── types/          # Type definitions and interfaces
+│   │   │   ├── startup-module.types.ts  # IStartupModule interface
+│   │   │   └── ...
 │   │   ├── utils/          # Utility functions and base module classes
 │   │   └── index.ts
 │   ├── modules/            # Business modules (each module can be later extracted as an independent package)
@@ -141,10 +146,57 @@ The `core` directory contains the essential framework components:
 - **`config/`**: Environment loading and configuration management.
 - **`constants/`**: Definitions for tokens, modes, and other constants.
 - **`di/`**: Dependency injection container, including global DI configurations in `global-di-configs.ts`.
+- **`jobs/`**: Example job modules like CronJobModule.
 - **`server/`**: Fastify server setup, routing, error handling, and Swagger documentation.
 - **`services/`**: Core services like Logger, Environment, etc.
 - **`types/`**: Shared TypeScript types and interfaces.
 - **`utils/`**: Base classes and helper functions for modules.
+
+### Modular Startup Process
+
+The application uses a modular startup process that allows different types of services (web server, cron jobs, message
+queue consumers, etc.) to be initialized, started, and stopped in a coordinated way. This is implemented through the
+`IStartupModule` interface:
+
+```typescript
+export interface IStartupModule {
+  readonly name: string;
+
+  initialize(container: AppContainer): Promise<void>;
+
+  start(): Promise<void>;
+
+  stop(): Promise<void>;
+}
+```
+
+#### Built-in Startup Modules
+
+- **WebServerModule**: Initializes and starts the Fastify web server. This module is registered by default.
+- **CronJobModule**: An example module that demonstrates how to implement cron jobs as a startup module.
+
+#### Registering a Startup Module
+
+To register a custom startup module:
+
+```typescript
+import { setupApp } from 'src/core/app';
+import { Jobs } from 'src/core';
+import { globalDIConfigs } from 'src/core/di';
+import modules from 'src/modules';
+
+(async () => {
+  const app = await setupApp(globalDIConfigs, modules);
+
+  // Register a custom startup module
+  app.registerStartupModule(new Jobs.CronJobModule());
+
+  await app.initialize();
+  await app.start();
+})();
+```
+
+For more details, see the [Startup Modules documentation](src/core/types/README.md).
 
 ### Business Modules
 
