@@ -1,37 +1,48 @@
 # Web Service Template
 
-### A foundational template for efficiently developing scalable web service applications.
+[![Node.js](https://img.shields.io/badge/Node.js-Latest-339933?style=flat&logo=node.js)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![Fastify](https://img.shields.io/badge/Fastify-5.x-000000?style=flat&logo=fastify)](https://www.fastify.io/)
+[![Prisma](https://img.shields.io/badge/Prisma-6.x-2D3748?style=flat&logo=prisma)](https://www.prisma.io/)
+[![PNPM](https://img.shields.io/badge/PNPM-Latest-F69220?style=flat&logo=pnpm)](https://pnpm.io)
+
+A foundational template for efficiently developing scalable web service applications.
+
+## 📋 Table of Contents
+
+- [📝 Project Introduction](#-project-introduction)
+- [🚀 Quick Start](#-quick-start)
+- [📂 Project Structure](#-project-structure)
+- [🏗 System Architecture](#-system-architecture)
+- [💻 Development Guide](#-development-guide)
+- [⚙️ Environment Variables](#-environment-variables)
+- [📦 Deployment](#-deployment)
+- [🔧 Module Setup Example](#-module-setup-example)
+- [❓ FAQ](#-faq)
 
 ---
 
-## Features
+## 📝 Project Introduction
 
-- **Efficient Development:** Provides a foundational template for developing scalable web services.
-- **Modular Design:** Separates core functionalities from business modules for easy maintenance and scalability.
-- **Simplified Workflow:** Offers rich script commands to simplify development, testing, and deployment.
-- **Enhanced Development Efficiency:** Supports hot reloading and automatic compilation.
+Web Service Template is a backend service template developed based on the Fastify framework, providing developers with
+an efficient and scalable foundation for web service development.
+
+### Key Features
+
+- **Efficient Development:** Provides a foundational template for developing scalable web services
+- **Modular Design:** Separates core functionalities from business modules for easy maintenance and scalability
+- **Simplified Workflow:** Offers rich script commands to simplify development, testing, and deployment
+- **Enhanced Development Efficiency:** Supports hot reloading and automatic compilation
 - **Integrated Core Functionalities:** Includes built-in dependency injection, configuration management, error handling,
-  and more.
-
-**Summary:**
-
-- [Installation](#installation)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-    - [Core Module (`core`)](#core-module-core)
-- [Script Commands](#script-commands)
-- [Environment Variables](#environment-variables)
-- [Development Workflow](#development-workflow)
-- [Example Module Setup](#example-module-setup)
-- [Development](#development)
+  and more
 
 ---
 
-## Installation
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Ensure that the correct version of Node.js is installed (see `.nvmrc` for details).
+- Ensure you have the correct version of Node.js installed (see `.nvmrc` for details)
 - Install [pnpm](https://pnpm.io/) globally:
 
   ```bash
@@ -40,36 +51,36 @@
 
 ### Installation Steps
 
-1. **Clone the repository and navigate to the project directory:**
+1. **Clone the repository and navigate to the project directory**
 
    ```bash
    git clone <repository_url>
    cd <project_directory>
    ```
 
-2. **Deploy the local development environment:**  
-   (See the [Development](#development) section for details.)
+2. **Deploy the local development environment**  
+   (See the [Development Guide](#-development-guide) section for details)
 
-3. **Copy the example environment variable file:**
+3. **Copy the example environment variables file**
 
    ```bash
    cp .env.example .env
    ```
 
-4. **Install dependencies:**
+4. **Install dependencies**
 
    ```bash
    nvm use  # (Optional: switch to the Node.js version specified in .nvmrc)
    pnpm run install:ci
    ```
 
-5. **Compile TypeScript files:**
+5. **Compile TypeScript files**
 
    ```bash
    pnpm run build
    ```
 
-6. **Start the development server:**
+6. **Start the development server**
 
    ```bash
    pnpm start
@@ -77,19 +88,11 @@
 
 ---
 
-## Usage
+## 📂 Project Structure
 
-Use this template as the base for your web service. The framework handles global configurations and dependency
-injection. You can focus on developing your business modules in the `src/modules` directory. For debugging and
-deployment, follow your standard Node.js application workflows.
+This project follows a clear separation between core components and business modules:
 
----
-
-## Project Structure
-
-The project follows a clear separation between framework core components and business modules:
-
-```plaintext
+```
 ├── README.md
 ├── index.ts                # Application entry point
 ├── package.json
@@ -140,16 +143,16 @@ The project follows a clear separation between framework core components and bus
 
 ### Core Module (`core`)
 
-The `core` directory contains the essential framework components:
+The `core` directory contains the essential framework parts:
 
-- **`app/`**: Application initialization and server setup.
-- **`config/`**: Environment loading and configuration management.
-- **`constants/`**: Definitions for tokens, modes, and other constants.
-- **`di/`**: Dependency injection container, including global DI configurations in `global-di-configs.ts`.
-- **`server/`**: Fastify server setup, routing, error handling, and Swagger documentation.
+- **`app/`**: Application initialization and server setup
+- **`config/`**: Environment loading and configuration management
+- **`constants/`**: Definitions for tokens, modes, and other constants
+- **`di/`**: Dependency injection container, including global DI configurations in `global-di-configs.ts`
+- **`server/`**: Fastify server setup, routing, error handling, and Swagger documentation
 - **`services/`**: Core services like Logger, Environment, etc.
-- **`types/`**: Shared TypeScript types and interfaces.
-- **`utils/`**: Base classes and helper functions for modules.
+- **`types/`**: Shared TypeScript types and interfaces
+- **`utils/`**: Base classes and helper functions for modules
 
 ### Modular Startup Process
 
@@ -204,103 +207,140 @@ dependencies. This design improves clarity and allows modules to be later extrac
 
 ---
 
-## Script Commands
+## 🏗 System Architecture
 
-The template provides the following useful `pnpm` script commands:
+Web Service Template adopts a modular architecture that separates core framework functionalities from business logic.
 
-- **install:ci**: Install dependencies with a frozen lockfile (ideal for CI).
+### Architecture Layers
 
+1. **Core Layer**
+    - Provides infrastructure: dependency injection, configuration management, server setup
+    - Handles cross-cutting concerns: logging, error handling, request context
+
+2. **Module Layer**
+    - Contains independent business feature modules
+    - Each module is self-contained and can be developed independently
+
+3. **Service Layer**
+    - Implements business logic
+    - Handles data transformation and business rules
+
+4. **Controller Layer**
+    - Processes HTTP requests and responses
+    - Validates input and formats output
+
+5. **Route Layer**
+    - Defines API endpoints
+    - Connects HTTP requests to controllers
+
+---
+
+## 💻 Development Guide
+
+### Available Script Commands
+
+- **install:ci**: Install dependencies with a frozen lockfile (ideal for CI)
   ```bash
   pnpm run install:ci
   ```
 
-- **install:dev**: Install dependencies without freezing the lockfile (for development).
-
+- **install:dev**: Install dependencies without freezing the lockfile (for development)
   ```bash
   pnpm run install:dev
   ```
 
-- **build**: Compile TypeScript files.
-
+- **build**: Compile TypeScript files
   ```bash
   pnpm run build
   ```
 
-- **start**: Run the development server with automatic recompilation.
-
+- **start**: Run the development server with automatic recompilation
   ```bash
   pnpm start
   ```
 
-- **lint**: Check code quality via linting.
-
+- **lint**: Check code quality via linting
   ```bash
   pnpm run lint
   ```
 
-- **lint:fix**: Automatically fix linting issues.
-
+- **lint:fix**: Automatically fix linting issues
   ```bash
   pnpm run lint:fix
   ```
 
-- **unittest:coverage**: Run unit tests and generate a coverage report.
-
+- **unittest:coverage**: Run unit tests and generate a coverage report
   ```bash
   pnpm run unittest:coverage
   ```
 
----
+### Development Workflow
 
-## Environment Variables
-
-The project uses an `.env` file to configure environment-specific settings. Below is an example configuration:
-
-```bash
-# Application name for identification across services
-APP_NAME=WebServiceTemplate
-
-# Application runtime environment (development, staging, production)
-APP_ENV=development
-
-# Port number where the service runs
-PORT=3000
-```
-
----
-
-## Development Workflow
-
-1. **Live Reloading:**  
+1. **Live Reloading**  
    During development, changes are automatically compiled and the server is restarted:
-
    ```bash
    pnpm start
    ```
 
-2. **Code Quality:**  
-   Ensure consistent code formatting and style:
-
+2. **Code Quality**  
+   Ensures consistent code formatting and style:
    ```bash
    pnpm run lint:fix
    ```
 
-3. **Testing:**  
+3. **Testing**  
    Run unit tests and generate coverage reports:
-
    ```bash
    pnpm run unittest:coverage
    ```
 
+### Setting Up a Local PostgreSQL Database
+
+1. **Install [Docker](https://www.docker.com/)**
+
+2. **Navigate to the project's `.dev-app-projects` directory**
+   ```bash
+   cd .dev-app-projects
+   ```
+
+3. **Start the Docker containers**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Prepare the database**  
+   Make sure your Prisma models are defined in `schema.prisma` before running migrations.
+   ```bash
+   pnpm run prisma:migrate
+   ```
+   Or generate the Prisma client:
+   ```bash
+   pnpm run prisma:generate
+   ```
+
 ---
 
-## Example Module Setup
+## ⚙️ Environment Variables
 
-Business modules reside in `src/modules`. Here’s an example using a "Hello" module:
+This project uses an `.env` file to configure environment-specific settings. Below are the main environment variables:
+
+| Variable Name | Description                                         | Default Value      |
+|---------------|-----------------------------------------------------|--------------------|
+| `APP_NAME`    | Application name for identification across services | WebServiceTemplate |
+| `APP_ENV`     | Application runtime environment                     | development        |
+| `PORT`        | Port number where the service runs                  | 3000               |
+
+For complete configuration, please refer to the `.env.example` file.
+
+---
+
+## 🔧 Module Setup Example
+
+Business modules reside in `src/modules`. Here's an example using a "Hello" module:
 
 ### Module Structure
 
-```plaintext
+```
 src/
   ├── modules/
   │   ├── hello/
@@ -367,35 +407,68 @@ export class HelloModule extends BaseModule {
 }
 ```
 
-*Additional module files (constants, controllers, services, routes, etc.) follow similar patterns.*
+---
+
+## 📦 Deployment
+
+### Building the Application
+
+```bash
+  pnpm run build
+```
+
+### Database Migration
+
+To deploy database changes in a production environment:
+
+```bash
+  pnpm run prisma:deploy
+```
 
 ---
 
-## Development
+## ❓ FAQ
 
-### Setting Up a Local PostgreSQL Database
+### How to add a new module?
 
-1. **Install [Docker](https://www.docker.com/).**
+1. Create a new module directory under `src/modules`
+2. Implement necessary components (constants, controllers, services, etc.)
+3. Create a module class that extends `BaseModule`
+4. Register the new module in `src/modules/index.ts`
 
-2. **Navigate to the project's `.dev-app-projects` directory:**
+### How to configure Swagger documentation?
 
-   ```bash
-   cd .dev-app-projects
-   ```
+Swagger documentation is automatically generated through the Fastify Swagger plugin.  
+You can use TypeBox in your
+controllers to define request and response schemas.
 
-3. **Start the Docker containers:**
+### How to handle database migrations?
 
-   ```bash
-   docker-compose up -d
-   ```
+Use Prisma CLI commands to manage database migrations:
 
-4. **Prepare the database:**  
-   Make sure your Prisma models are defined in `schema.prisma` before running migrations.
+```bash
 
-   ```bash
-   pnpm run prisma:migrate
-   ```
-   or generate the Prisma client:
-   ```bash
-   pnpm run prisma:generate
-   ```
+# Create a new migration
+pnpm run prisma:migrate
+
+# Deploy migrations to production environment
+pnpm run prisma:deploy
+
+# Reset database (development environment)
+pnpm run prisma:reset
+
+```
+
+### How to add new environment variables?
+
+1. Add new variables to the `.env.example` file
+2. Update the environment configuration schema in `src/core/config`
+3. Use environment variables through dependency injection
+
+### How to handle errors?
+
+The framework provides a centralized error handling mechanism. You can:
+
+1. Create custom error classes
+2. Throw these errors in controllers or services
+3. The global error handler will automatically catch and format responses
