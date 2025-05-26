@@ -1,55 +1,87 @@
 import { DI } from 'src/core';
-import { ContainerTokens } from 'src/core/constants';
-import { createWebServer, registerRoutes } from 'src/core/server';
-import { EnvironmentService } from 'src/core/services';
 import {
-  AppConfigType,
   AppContainer,
   GlobalContainerConfigEntries,
-  WebServer,
+  IStartupModule,
 } from 'src/core/types';
 import { IApplication } from './app.types';
 
 export default class Application implements IApplication {
-  private environment: EnvironmentService;
-  private readonly config: AppConfigType;
-  private webServer!: WebServer;
+  private startupModules: Map<string, IStartupModule> = new Map();
 
   constructor(
     private readonly container: AppContainer,
     private readonly globalContainerConfigEntries: GlobalContainerConfigEntries,
-  ) {
-    this.environment = this.container.resolve<EnvironmentService>(
-      ContainerTokens.ENVIRONMENT,
-    );
-    this.config = this.environment.getConfig();
+  ) {}
+
+  /**
+   * Register a startup module with the application.
+   * @param module The startup module is to register.
+   */
+  registerStartupModule(module: IStartupModule): void {
+    // Check if a module with the same name is already registered
+    if (this.startupModules.has(module.name)) {
+      console.log(
+        `Module with name "${module.name}" is already registered. Replacing.`,
+      );
+    }
+
+    // Add or replace the module in the map
+    this.startupModules.set(module.name, module);
   }
 
+  /**
+   * Initialize the application and all registered startup modules.
+   */
   async initialize(): Promise<void> {
     console.log('Application initialization started...');
 
-    const { appName, appEnv } = this.config;
-    console.log(
-      'Application configuration:',
-      JSON.stringify({ appName, appEnv }, undefined, 2),
-    );
+    // Initialize all startup modules
+    for (const module of this.startupModules.values()) {
+      console.log(`Initializing module: ${module.name}`);
+      await module.initialize(this.container);
+    }
 
-    this.webServer = await createWebServer(this.container, this.config);
-    console.log('Application initialization completed.');
-
+    // Execute onInitiate hooks for global services
     await DI.executeOnInitiateHooks(
       this.container,
       this.globalContainerConfigEntries,
     );
 
-    // Register routes
-    registerRoutes(this.container, this.webServer);
+    console.log('Application initialization completed.');
   }
 
+  /**
+   * Start the application and all registered startup modules.
+   */
   async start(): Promise<void> {
     console.log('Application starting...');
-    const host = '::';
-    const port = this.config.appPort;
-    await this.webServer.listen({ host, port });
+
+    // Start all startup modules
+    for (const module of this.startupModules.values()) {
+      console.log(`Starting module: ${module.name}`);
+      await module.start();
+    }
+
+    console.log('Application started successfully.');
+  }
+
+  /**
+   * Stop the application and all registered startup modules.
+   */
+  async stop(): Promise<void> {
+    console.log('Application stopping...');
+
+    // Stop all startup modules in reverse order
+    for (const module of [...this.startupModules.values()].reverse()) {
+      console.log(`Stopping module: ${module.name}`);
+      try {
+        await module.stop();
+      } catch (error) {
+        console.error(`Error stopping module ${module.name}:`, error);
+      }
+    }
+
+    console.log('Application stopped.');
   }
 }

@@ -110,8 +110,13 @@ The project follows a clear separation between framework core components and bus
 │   │   │   ├── on-initiate-executor.ts
 │   │   │   └── index.ts
 │   │   ├── server/         # Web server configuration, routing, and error handling
+│   │   │   ├── bootstrap/  # Server initialization
+│   │   │   ├── modules/    # Startup modules (e.g., WebServerModule)
+│   │   │   └── ...
 │   │   ├── services/       # Core services (e.g., Logger, Environment)
 │   │   ├── types/          # Type definitions and interfaces
+│   │   │   ├── startup-module.types.ts  # IStartupModule interface
+│   │   │   └── ...
 │   │   ├── utils/          # Utility functions and base module classes
 │   │   └── index.ts
 │   ├── modules/            # Business modules (each module can be later extracted as an independent package)
@@ -145,6 +150,52 @@ The `core` directory contains the essential framework components:
 - **`services/`**: Core services like Logger, Environment, etc.
 - **`types/`**: Shared TypeScript types and interfaces.
 - **`utils/`**: Base classes and helper functions for modules.
+
+### Modular Startup Process
+
+The application uses a modular startup process that allows different types of services (web server, cron jobs, message
+queue consumers, etc.) to be initialized, started, and stopped in a coordinated way. This is implemented through the
+`IStartupModule` interface:
+
+```typescript
+export interface IStartupModule {
+  readonly name: string;
+
+  initialize(container: AppContainer): Promise<void>;
+
+  start(): Promise<void>;
+
+  stop(): Promise<void>;
+}
+```
+
+#### Built-in Startup Modules
+
+- **WebServerModule**: Initializes and starts the Fastify web server. This module is registered by default.
+
+#### Registering a Startup Module
+
+To register a startup module:
+
+```typescript
+import { setupApp } from 'src/core/app';
+import { CronJobModule } from 'src/core';
+import { globalDIConfigs } from 'src/core/di';
+import { WebServerModule } from 'src/core/server';
+import modules from 'src/modules';
+
+(async () => {
+  const app = await setupApp(globalDIConfigs, modules);
+
+  // Register a default startup module
+  app.registerStartupModule(new WebServerModule());
+
+  await app.initialize();
+  await app.start();
+})();
+```
+
+For more details, see the [Startup Modules documentation](src/core/types/README.md).
 
 ### Business Modules
 
