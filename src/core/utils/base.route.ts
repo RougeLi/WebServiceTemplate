@@ -38,6 +38,46 @@ export function isRouteClass(classType: any): boolean {
   return false;
 }
 
+// Define the default access level constant
+export const UNMARKED_ACCESS: string = 'unmarked';
+
+// Use Symbol to ensure a unique metadata key for route access
+const ROUTE_ACCESS_KEY: symbol = Symbol('route:access');
+
+/**
+ * A decorator function that assigns an access level to a route class.
+ * Internally, it attaches the specified level to the target class using Reflect.defineMetadata.
+ *
+ * @param level - The access level (e.g., 'admin', 'user').
+ * @returns A class decorator function.
+ */
+export function AccessLevel(level: string): ClassDecorator {
+  return (target: Function): void => {
+    Reflect.defineMetadata(ROUTE_ACCESS_KEY, level, target);
+  };
+}
+
+/**
+ * Retrieves the access level of a class by traversing its prototype chain.
+ * If no access level is found, it returns the default 'unmarked' level.
+ *
+ * @param target - The class constructor to inspect.
+ * @returns The access level associated with the class.
+ */
+export function getAccessLevel(target: Function): string {
+  let currentTarget = target;
+
+  while (currentTarget && currentTarget !== Function.prototype) {
+    const lvl: string | undefined = Reflect.getMetadata(
+      ROUTE_ACCESS_KEY,
+      currentTarget,
+    );
+    if (lvl) return lvl;
+    currentTarget = Object.getPrototypeOf(currentTarget);
+  }
+  return UNMARKED_ACCESS;
+}
+
 /**
  * BaseRoute is an abstract class that provides a foundation for all route classes.
  * Classes extending BaseRoute must implement the `registerRoutes` method to define

@@ -1,5 +1,5 @@
 export { default as BaseModule } from './base.module';
-export { IS_ROUTE, isRouteClass, BaseRoute } from './base.route';
+export * from './base.route';
 export {
   makeDependencyRegistration,
   makeContainerRegistration,
