@@ -7,3 +7,5 @@ export * from './module.types';
 export * from './prisma.types';
 export * from './logger.types';
 export * from './startup-module.types';
+export * from './queue.types';
+export * from './worker.types';
