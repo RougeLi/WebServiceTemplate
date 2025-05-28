@@ -7,6 +7,7 @@ describe('EnvironmentService', () => {
   beforeAll(() => {
     process.env.APP_NAME = 'TestApp';
     process.env.APP_ENV = 'development';
+    process.env.JWT_SECRET = 'test';
     environmentService = new EnvironmentService();
   });
 
