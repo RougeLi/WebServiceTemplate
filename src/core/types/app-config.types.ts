@@ -10,4 +10,14 @@ export type AppConfigType = {
   prismaQueryMaxStrLen?: number;
   prismaQueryEnableJsonParse?: boolean;
   prismaQueryDelimiter?: string;
+  redisConfig?: {
+    host: string;
+    port: number;
+    password?: string;
+    db?: number;
+  };
 };
+
+export type APPName = AppConfigType['appName'];
+
+export type RedisConfig = AppConfigType['redisConfig'];
