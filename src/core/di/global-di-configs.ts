@@ -1,4 +1,4 @@
-import { Services } from 'src/core';
+import { Services, Server } from 'src/core';
 import { ContainerTokens, InjectionResolverMode } from 'src/core/constants';
 import { AppContainer, GlobalContainerConfigEntries } from 'src/core/types';
 
@@ -41,6 +41,15 @@ const globalDIConfigs: GlobalContainerConfigEntries = [
           .resolve<Services.PrismaService>(ContainerTokens.PRISMA)
           .connect();
       },
+    },
+  },
+
+  // Secret Auth Handler
+  {
+    containerTokens: ContainerTokens.SECRET_AUTH_HANDLER,
+    globalContainerConfig: {
+      service: Server.SecretAuthHandler,
+      mode: InjectionResolverMode.SINGLETON,
     },
   },
 ];
