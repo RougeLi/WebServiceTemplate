@@ -1,5 +1,6 @@
-import { Services, Server } from 'src/core';
+import { Services } from 'src/core';
 import { ContainerTokens, InjectionResolverMode } from 'src/core/constants';
+import { BearerAuthHandler, SecretAuthHandler } from 'src/core/server';
 import { AppContainer, GlobalContainerConfigEntries } from 'src/core/types';
 
 const globalDIConfigs: GlobalContainerConfigEntries = [
@@ -48,7 +49,16 @@ const globalDIConfigs: GlobalContainerConfigEntries = [
   {
     containerTokens: ContainerTokens.SECRET_AUTH_HANDLER,
     globalContainerConfig: {
-      service: Server.SecretAuthHandler,
+      service: SecretAuthHandler,
+      mode: InjectionResolverMode.SINGLETON,
+    },
+  },
+
+  // Bearer Auth Handler
+  {
+    containerTokens: ContainerTokens.BEARER_AUTH_HANDLER,
+    globalContainerConfig: {
+      service: BearerAuthHandler,
       mode: InjectionResolverMode.SINGLETON,
     },
   },

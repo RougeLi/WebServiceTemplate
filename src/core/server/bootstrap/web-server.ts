@@ -1,5 +1,6 @@
 import { fastifyAwilixPlugin } from '@fastify/awilix';
 import helmet from '@fastify/helmet';
+import fastifyJwt from '@fastify/jwt';
 import fastifyRequestContext from '@fastify/request-context';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -96,6 +97,9 @@ async function initializeWebServer(config: AppConfigType): Promise<WebServer> {
   });
   await webServer.register(helmet);
   await webServer.register(fastifyRequestContext);
+  await webServer.register(fastifyJwt, {
+    secret: config.jwtSecret,
+  });
 
   return webServer;
 }
