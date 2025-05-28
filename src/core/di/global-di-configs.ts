@@ -43,6 +43,20 @@ const globalDIConfigs: GlobalContainerConfigEntries = [
       },
     },
   },
+
+  // Redis Service
+  {
+    containerTokens: ContainerTokens.REDIS,
+    globalContainerConfig: {
+      service: Services.RedisService,
+      mode: InjectionResolverMode.SINGLETON,
+      onInitiate: async (container: AppContainer) => {
+        await container
+          .resolve<Services.RedisService>(ContainerTokens.REDIS)
+          .connect();
+      },
+    },
+  },
 ];
 
 export default globalDIConfigs;

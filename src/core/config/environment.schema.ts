@@ -20,6 +20,12 @@ export const EnvironmentSchema = z.object({
   PRISMA_QUERY_MAX_STR_LEN: z.optional(z.number()),
   PRISMA_QUERY_ENABLE_JSON_PARSE: booleanOptionalDefaultFalse,
   PRISMA_QUERY_DELIMITER: z.optional(z.string()),
+  REDIS_HOST: z.optional(z.string()),
+  REDIS_PORT: z.optional(z.string()),
+  REDIS_PASSWORD: z.optional(z.string()),
+  REDIS_DB: z.optional(z.string()),
+  REDIS_KEY_PREFIX: z.optional(z.string()).default('app'),
+  REDIS_KEY_SEPARATOR: z.optional(z.string()).default(':'),
 });
 
 export const transformEnvironment = (
@@ -34,4 +40,16 @@ export const transformEnvironment = (
   prismaQueryMaxStrLen: environment.PRISMA_QUERY_MAX_STR_LEN,
   prismaQueryEnableJsonParse: environment.PRISMA_QUERY_ENABLE_JSON_PARSE,
   prismaQueryDelimiter: environment.PRISMA_QUERY_DELIMITER,
+  redisConfig: environment.REDIS_HOST
+    ? {
+        host: environment.REDIS_HOST,
+        port: Number.parseInt(environment.REDIS_PORT ?? '6379', 10),
+        password: environment.REDIS_PASSWORD,
+        db: environment.REDIS_DB
+          ? Number.parseInt(environment.REDIS_DB, 10)
+          : undefined,
+        keyPrefix: environment.REDIS_KEY_PREFIX,
+        keySeparator: environment.REDIS_KEY_SEPARATOR,
+      }
+    : undefined,
 });

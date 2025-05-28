@@ -3,4 +3,5 @@ export enum ContainerTokens {
   LOGGER = 'logger',
   PRISMA_CONFIG = 'prismaConfig',
   PRISMA = 'prisma',
+  REDIS = 'redis',
 }
