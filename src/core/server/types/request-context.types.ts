@@ -51,4 +51,44 @@ export type RouteHeaders<T extends TSchema | undefined> = RouteType<
   T
 >;
 
+/** Route request type definition with query parameters and optional parameters/headers */
+export type RouteQueryRequest<
+  Q extends TSchema | undefined = undefined,
+  P extends TSchema | undefined = undefined,
+  H extends TSchema | undefined = undefined,
+> = FastifyRequest<RouteType<Q, undefined, P, H>>;
+
+/** Route request type definition with body payload and optional parameters/headers */
+export type RouteBodyRequest<
+  B extends TSchema | undefined = undefined,
+  P extends TSchema | undefined = undefined,
+  H extends TSchema | undefined = undefined,
+> = FastifyRequest<RouteType<undefined, B, P, H>>;
+
+/** Route request type definition with URL parameters and optional headers */
+export type RouteParamsRequest<
+  P extends TSchema | undefined = undefined,
+  H extends TSchema | undefined = undefined,
+> = FastifyRequest<RouteType<P, H>>;
+
+/** Route request type definition with headers only */
+export type RouteHeadersRequest<H extends TSchema | undefined = undefined> =
+  FastifyRequest<RouteHeaders<H>>;
+
+/** Generic route request type definition with optional query/body/params/headers */
+export type RouteRequest<
+  Q extends TSchema | undefined = undefined,
+  B extends TSchema | undefined = undefined,
+  P extends TSchema | undefined = undefined,
+  H extends TSchema | undefined = undefined,
+> = FastifyRequest<RouteType<Q, B, P, H>>;
+
+/** Type for typed response data */
+export type TypedResponse<T extends TSchema | undefined = undefined> =
+  TypeBoxStatic<T>;
+
+/** Type for typed response data wrapped in a Promise */
+export type TypedResponsePromise<T extends TSchema | undefined = undefined> =
+  Promise<TypeBoxStatic<T>>;
+
 export { FastifyRequest, FastifyReply };
