@@ -96,7 +96,7 @@ describe('LoggerService', () => {
     it('should handle object as first parameter', () => {
       const obj = { userId: 123, action: 'login' };
       service.info(obj);
-      expect(mockLogger.info).toHaveBeenCalledWith(obj);
+      expect(mockLogger.info).toHaveBeenCalledWith(obj, '');
     });
 
     it('should handle object as first parameter and a string message as second parameter', () => {
@@ -109,6 +109,7 @@ describe('LoggerService', () => {
     it('should handle object as first parameter and multiple extra arguments', () => {
       const obj = { userId: 123, action: 'login' };
       service.info(obj, 'User login action', 'extra1', 'extra2');
+      // When the second argument is a string, all arguments are passed separately
       expect(mockLogger.info).toHaveBeenCalledWith(
         obj,
         'User login action',
@@ -117,10 +118,10 @@ describe('LoggerService', () => {
       );
     });
 
-    it('should filter out undefined arguments after object parameter', () => {
+    it('should filter out undefined arguments after object parameter and join remaining args', () => {
       const obj = { key: 'value' };
       service.info(obj, undefined, 'some other arg');
-      // 預期不會有undefined傳入logger，filteredArguments應該只會留有 'some other arg'
+      // With the new implementation, the remaining arguments are joined as a string
       expect(mockLogger.info).toHaveBeenCalledWith(obj, 'some other arg');
     });
 
@@ -129,20 +130,102 @@ describe('LoggerService', () => {
       service.info(numberVal);
       expect(mockLogger.info).toHaveBeenCalledWith('123');
     });
+
+    it('should join multiple non-object arguments with spaces', () => {
+      service.info('Hello', 'world', 123);
+      expect(mockLogger.info).toHaveBeenCalledWith('Hello world 123');
+    });
+
+    it('should pass multiple arguments after object separately', () => {
+      const obj = { key: 'value' };
+      service.info(obj, 'arg1', 'arg2', 123);
+      expect(mockLogger.info).toHaveBeenCalledWith(obj, 'arg1', 'arg2', 123);
+    });
   });
 
   describe('LoggerService with error arguments', () => {
     it('should handle Error object properly', () => {
       const error = new Error('Test error');
       service.error(error);
-      expect(mockLogger.error).toHaveBeenCalledWith(error);
+      // Error objects are treated as object parameters
+      expect(mockLogger.error).toHaveBeenCalledWith(error, '');
     });
 
     it('should handle Error object and a message', () => {
       const error = new Error('Test error with message');
       const message = 'An error occurred';
       service.error(error, message);
+      // When the second argument is a string, it's passed separately
       expect(mockLogger.error).toHaveBeenCalledWith(error, message);
+    });
+  });
+
+  describe('serializeLogArgument function', () => {
+    it('should convert objects to JSON strings', () => {
+      const obj = { key: 'value', num: 123 };
+      service.info(obj);
+      expect(mockLogger.info).toHaveBeenCalledWith(obj, '');
+    });
+
+    it('should handle circular references in objects', () => {
+      const circularObj: any = { key: 'value' };
+      circularObj.self = circularObj;
+
+      service.info(circularObj);
+      // When serializing fails due to circular reference, it should use fallback
+      expect(mockLogger.info).toHaveBeenCalledWith(circularObj, '');
+    });
+
+    it('should serialize nested objects in non-object first parameter case', () => {
+      const nestedObj = { nested: { key: 'value' } };
+      service.info('Message with object:', nestedObj);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Message with object: ${JSON.stringify(nestedObj)}`,
+      );
+    });
+
+    it('should handle empty array of filtered arguments after object parameter', () => {
+      const obj = { key: 'value' };
+      service.info(obj, undefined);
+      // With no remaining arguments after filtering, it should pass an empty string
+      expect(mockLogger.info).toHaveBeenCalledWith(obj, '');
+    });
+
+    it('should properly serialize Error objects with message and stack', () => {
+      const error = new Error('Test error');
+      error.stack = 'Stack trace';
+      service.info('Error occurred:', error);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Error occurred: Test error Stack trace',
+      );
+    });
+
+    it('should handle Error objects without stack', () => {
+      const error = new Error('Test error');
+      error.stack = undefined;
+      service.info('Error occurred:', error);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Error occurred: Test error ',
+      );
+    });
+
+    it('should handle circular objects by returning [Circular Object]', () => {
+      const circularObj: any = { key: 'value' };
+      circularObj.self = circularObj;
+
+      // Mock JSON.stringify to throw an error to trigger the catch block
+      const originalStringify = JSON.stringify;
+      JSON.stringify = jest.fn().mockImplementation(() => {
+        throw new Error('Circular structure');
+      });
+
+      service.info('Circular object:', circularObj);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Circular object: [Circular Object]',
+      );
+
+      // Restore original JSON.stringify
+      JSON.stringify = originalStringify;
     });
   });
 });

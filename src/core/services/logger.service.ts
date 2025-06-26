@@ -41,9 +41,6 @@ export default class LoggerService implements ILoggerService {
     this.log(LogLevels.FATAL, ...argumentsArray);
   }
 
-  /**
-   * Generic log method to reduce code repetition
-   */
   private log(level: LogLevels, ...argumentsArray: any[]) {
     const loggerInstance = this.getLoggerInstance();
 
@@ -56,7 +53,6 @@ export default class LoggerService implements ILoggerService {
 
     if (firstArgument && typeof firstArgument === OBJECT_STRING) {
       const objectParam = firstArgument as Record<string, unknown>;
-
       if (typeof secondArgument === STRING_STRING) {
         loggerInstance[level](
           objectParam,
@@ -68,15 +64,33 @@ export default class LoggerService implements ILoggerService {
           secondArgument,
           ...remainingArguments,
         ].filter((value) => value !== undefined);
-        loggerInstance[level](objectParam, ...filteredArguments);
+        const merged =
+          filteredArguments.length > 0
+            ? filteredArguments.map(serializeLogArgument).join(' ')
+            : '';
+        loggerInstance[level](objectParam, merged);
       }
     } else {
-      const message = String(firstArgument);
-      loggerInstance[level](message, ...remainingArguments);
+      const mergedMsg = argumentsArray.map(serializeLogArgument).join(' ');
+      loggerInstance[level](mergedMsg);
     }
   }
 
   private getLoggerInstance(): FastifyBaseLogger {
     return requestContext.get('logger') ?? this.logger;
   }
+}
+
+function serializeLogArgument(argument: any): string {
+  if (argument instanceof Error) {
+    return `${argument.message} ${argument.stack ?? ''}`;
+  }
+  if (typeof argument === 'object') {
+    try {
+      return JSON.stringify(argument);
+    } catch {
+      return '[Circular Object]';
+    }
+  }
+  return String(argument);
 }
