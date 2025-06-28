@@ -1,3 +1,4 @@
+import { StatusCodes } from 'http-status-codes';
 import { Environment } from 'src/core/constants';
 import { WebError } from 'src/core/server';
 import { EnvironmentService, LoggerService } from 'src/core/services';
@@ -13,47 +14,51 @@ export class ErrorLoggerHandler {
     this.config = this.environment.getConfig();
   }
 
+  /** Log request errors or parameter validation errors as info level */
   logError(error: WebError) {
     const formattedError = this.formatError(error);
-    this.logger.error(formattedError);
+    this.logger.info(formattedError);
   }
 
+  /** Log critical internal errors as error level */
   internalError(error: Error) {
     this.logger.error(error);
   }
 
-  /**
-   * Formats error messages based on the environment.
-   * Development: more detailed stack trace and status code
-   * Staging: concise info with status code
-   * Production: only critical info
-   */
+  /** Format error message based on environment */
   private formatError(error: WebError): string {
+    let prefix: string;
+    if (
+      error.statusCode >= StatusCodes.INTERNAL_SERVER_ERROR &&
+      error.statusCode < 600
+    ) {
+      prefix = 'Internal Server Error';
+    } else if (
+      error.statusCode >= StatusCodes.BAD_REQUEST &&
+      error.statusCode < StatusCodes.INTERNAL_SERVER_ERROR
+    ) {
+      prefix = 'Client Request Error';
+    } else {
+      prefix = 'Application Notice';
+    }
+
     switch (this.config.appEnv) {
-      case Environment.DEVELOPMENT: {
+      case Environment.DEVELOPMENT:
         return [
-          `Error: ${error.message}`,
+          `${prefix}: ${error.message}`,
           `Status Code: ${error.statusCode}`,
           `Stack: ${error.stack}`,
         ]
           .filter(Boolean)
           .join('\n');
-      }
-
-      case Environment.STAGING: {
+      case Environment.STAGING:
         return [
-          `Error: ${error.message}`,
+          `${prefix}: ${error.message}`,
           `Status Code: ${error.statusCode}`,
         ].join('\n');
-      }
-
-      case Environment.PRODUCTION: {
-        return `Error: ${error.message}`;
-      }
-
-      default: {
-        return `Error: ${error.message}`;
-      }
+      case Environment.PRODUCTION:
+      default:
+        return `${prefix}: ${error.message}`;
     }
   }
 }
