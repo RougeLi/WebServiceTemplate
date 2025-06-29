@@ -152,7 +152,7 @@ The `core` directory contains the essential framework parts:
 - **`server/`**: Fastify server setup, routing, error handling, and Swagger documentation
 - **`services/`**: Core services like Logger, Environment, etc.
 - **`types/`**: Shared TypeScript types and interfaces
-- **`utils/`**: Base classes and helper functions for modules
+- **`utils/`**: Base classes and helper functions for modules, including the initializer-pool mechanism
 
 ### Modular Startup Process
 
@@ -199,6 +199,32 @@ import modules from 'src/modules';
 ```
 
 For more details, see the [Startup Modules documentation](src/core/types/README.md).
+
+### Initializer Pool Mechanism
+
+The application includes an Initializer Pool utility that follows the Plugin pattern / Initialization Registry pattern. This mechanism allows for registering and executing initialization functions in a coordinated way.
+
+```typescript
+// Example of using the initializer pool
+import { serviceInitializerPool } from 'src/core/utils/initializer-pool';
+
+// Register an initialization function
+serviceInitializerPool.register(async () => {
+  // Initialization logic here
+  console.log('Initializing service...');
+});
+
+// Execute all registered initialization functions
+await serviceInitializerPool.initializeAll();
+```
+
+Key features of the Initializer Pool:
+- **Registration**: Register initialization functions to be executed later
+- **Sequential Execution**: Execute all registered functions in sequence
+- **Singleton Instance**: A singleton instance (`serviceInitializerPool`) is available for application-wide use
+- **Custom Pools**: Create custom initializer pools using the `createInitializerPool()` function
+
+This mechanism is particularly useful for initializing services, setting up event listeners, or performing any other startup tasks that need to be coordinated across different parts of the application.
 
 ### Business Modules
 

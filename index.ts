@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { WebServerModule } from 'src/core';
 import { setupApp } from 'src/core/app';
 import { globalDIConfigs } from 'src/core/di';
+import { serviceInitializerPool } from 'src/core/utils';
 import modules from 'src/modules';
 
 (async () => {
@@ -14,6 +15,9 @@ import modules from 'src/modules';
 
   // Initialize the application and all registered modules
   await app.initialize();
+
+  // Initialize dependent resource services for the ticketing system
+  await serviceInitializerPool.initializeAll();
 
   // Start the application and begin accepting requests
   await app.start();
