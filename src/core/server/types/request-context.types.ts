@@ -69,7 +69,7 @@ export type RouteBodyRequest<
 export type RouteParamsRequest<
   P extends TSchema | undefined = undefined,
   H extends TSchema | undefined = undefined,
-> = FastifyRequest<RouteType<P, H>>;
+> = FastifyRequest<RouteType<undefined, undefined, P, H>>;
 
 /** Route request type definition with headers only */
 export type RouteHeadersRequest<H extends TSchema | undefined = undefined> =
