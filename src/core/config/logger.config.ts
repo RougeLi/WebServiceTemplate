@@ -11,8 +11,8 @@ const developmentLogger: LoggerOptions = {
     },
     res(reply: FastifyReply) {
       const { statusCode, sent, request } = reply;
-      const { params, query, body } = request;
-      return { statusCode, sent, params, query, body };
+      const { url, params, query, body, extraPayload } = request;
+      return { url, statusCode, sent, params, query, body, ...extraPayload };
     },
   },
   transport: {
@@ -29,7 +29,16 @@ const stagingLogger: LoggerOptions = {
     },
     res(reply: FastifyReply) {
       const { statusCode, sent, request } = reply;
-      const { url, method, params, query, body, headers, hostname } = request;
+      const {
+        url,
+        method,
+        params,
+        query,
+        body,
+        headers,
+        hostname,
+        extraPayload,
+      } = request;
       return {
         statusCode,
         sent,
@@ -40,6 +49,7 @@ const stagingLogger: LoggerOptions = {
         body,
         headers,
         hostname,
+        ...extraPayload,
       };
     },
   },
@@ -58,7 +68,16 @@ const productionLogger: LoggerOptions = {
     },
     res(reply: FastifyReply) {
       const { statusCode, sent, request } = reply;
-      const { url, method, params, query, body, headers, hostname } = request;
+      const {
+        url,
+        method,
+        params,
+        query,
+        body,
+        headers,
+        hostname,
+        extraPayload,
+      } = request;
       return {
         statusCode,
         sent,
@@ -69,6 +88,7 @@ const productionLogger: LoggerOptions = {
         body,
         headers,
         hostname,
+        ...extraPayload,
       };
     },
   },

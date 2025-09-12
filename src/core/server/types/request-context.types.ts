@@ -11,6 +11,13 @@ declare module '@fastify/request-context' {
   }
 }
 
+/** Extend the Fastify module to add custom property extraPayload for the request object */
+declare module 'fastify' {
+  interface FastifyRequest {
+    extraPayload?: Record<string, any>;
+  }
+}
+
 /** Get a static type from TypeBox schema type */
 export type TypeBoxStatic<T> = T extends TSchema ? Static<T> : unknown;
 
