@@ -10,3 +10,4 @@ export {
   createInitializerPool,
   serviceInitializerPool,
 } from './initializer-pool';
+export * from './date-utils';
