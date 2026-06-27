@@ -407,28 +407,17 @@ The Hello module demonstrates how to register its own dependencies:
 // src/modules/hello/hello.module.ts
 import { BaseModule } from 'src/core/utils';
 import { InjectionTokens } from './constants/injection-tokens';
-import { InjectionResolverMode } from 'src/core/constants';
 import { HelloRoute } from './routes/hello.route';
 import { HelloController } from './controllers/hello.controller';
 import { HelloService } from './services/hello.service';
 
 export class HelloModule extends BaseModule {
   registerDependencies() {
-    this.registerDependency(
-      InjectionTokens.HELLO_ROUTE,
-      HelloRoute,
-      InjectionResolverMode.SINGLETON,
-    )
-      .registerDependency(
-        InjectionTokens.HELLO_CONTROLLER,
-        HelloController,
-        InjectionResolverMode.SINGLETON,
-      )
-      .registerDependency(
-        InjectionTokens.HELLO_SERVICE,
-        HelloService,
-        InjectionResolverMode.SINGLETON,
-      );
+    this.registerSingletons([
+      [InjectionTokens.HELLO_ROUTE, HelloRoute],
+      [InjectionTokens.HELLO_CONTROLLER, HelloController],
+      [InjectionTokens.HELLO_SERVICE, HelloService],
+    ]);
   }
 }
 ```
