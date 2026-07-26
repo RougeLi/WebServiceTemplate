@@ -24,13 +24,23 @@ type DependencyRegistrationPair = readonly [
 export default abstract class BaseModule implements IModule {
   readonly dependencyRegistrations: DependencyRegistrations = [];
 
+  /**
+   * Collects and returns the dependency registrations declared by this module.
+   */
   getRegisterDependencies(): DependencyRegistrations {
     this.registerDependencies();
     return this.dependencyRegistrations;
   }
 
+  /**
+   * Declares the dependencies owned by this module.
+   */
   abstract registerDependencies(): void;
 
+  /**
+   * Registers one dependency and its route token when the class is a route.
+   * The resolver defaults to singleton when `injectionMode` is omitted.
+   */
   registerDependency(
     injectionToken: string,
     classType: ClassType,
@@ -45,6 +55,10 @@ export default abstract class BaseModule implements IModule {
     return this;
   }
 
+  /**
+   * Registers dependency tuples in input order, defaulting omitted modes to
+   * singleton.
+   */
   registerDependenciesByItems(
     items: readonly DependencyRegistrationItem[],
   ): this {
@@ -55,6 +69,9 @@ export default abstract class BaseModule implements IModule {
     return this;
   }
 
+  /**
+   * Registers one singleton dependency.
+   */
   registerSingleton(injectionToken: string, classType: ClassType): this {
     return this.registerDependency(
       injectionToken,
@@ -63,6 +80,9 @@ export default abstract class BaseModule implements IModule {
     );
   }
 
+  /**
+   * Registers one scoped dependency.
+   */
   registerScoped(injectionToken: string, classType: ClassType): this {
     return this.registerDependency(
       injectionToken,
@@ -71,6 +91,9 @@ export default abstract class BaseModule implements IModule {
     );
   }
 
+  /**
+   * Registers one transient dependency.
+   */
   registerTransient(injectionToken: string, classType: ClassType): this {
     return this.registerDependency(
       injectionToken,
@@ -79,6 +102,9 @@ export default abstract class BaseModule implements IModule {
     );
   }
 
+  /**
+   * Registers dependency tuples as singletons in input order.
+   */
   registerSingletons(items: readonly DependencyRegistrationPair[]): this {
     for (const [injectionToken, classType] of items) {
       this.registerSingleton(injectionToken, classType);
@@ -87,7 +113,12 @@ export default abstract class BaseModule implements IModule {
     return this;
   }
 
-  registerScopes(items: readonly DependencyRegistrationPair[]): this {
+  /**
+   * Registers dependency tuples with scoped lifetimes in input order.
+   */
+  registerScopedDependencies(
+    items: readonly DependencyRegistrationPair[],
+  ): this {
     for (const [injectionToken, classType] of items) {
       this.registerScoped(injectionToken, classType);
     }
@@ -95,6 +126,9 @@ export default abstract class BaseModule implements IModule {
     return this;
   }
 
+  /**
+   * Registers dependency tuples as transients in input order.
+   */
   registerTransients(items: readonly DependencyRegistrationPair[]): this {
     for (const [injectionToken, classType] of items) {
       this.registerTransient(injectionToken, classType);

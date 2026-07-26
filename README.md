@@ -422,6 +422,47 @@ export class HelloModule extends BaseModule {
 }
 ```
 
+### Dependency Registration Helpers
+
+`registerDependency()` registers a singleton when its resolver mode is omitted:
+
+```typescript
+this.registerDependency(InjectionTokens.HELLO_SERVICE, HelloService);
+```
+
+Use `registerDependenciesByItems()` when one list needs mixed resolver modes.
+Items without a third value still default to singleton:
+
+```typescript
+import { InjectionResolverMode } from 'src/core/constants';
+
+this.registerDependenciesByItems([
+  [InjectionTokens.DEFAULT_SERVICE, DefaultService],
+  [
+    InjectionTokens.REQUEST_SERVICE,
+    RequestService,
+    InjectionResolverMode.SCOPED,
+  ],
+  [InjectionTokens.WORKER, Worker, InjectionResolverMode.TRANSIENT],
+]);
+```
+
+Lifetime-specific helpers are available for single and batch registrations:
+
+| Lifetime  | Single registration                   | Batch registration                  |
+| --------- | ------------------------------------- | ----------------------------------- |
+| Singleton | `registerSingleton(token, classType)` | `registerSingletons(items)`         |
+| Scoped    | `registerScoped(token, classType)`    | `registerScopedDependencies(items)` |
+| Transient | `registerTransient(token, classType)` | `registerTransients(items)`         |
+
+All registration helpers return the current module, so calls can be chained.
+Registering a class that extends `BaseRoute` through any helper also adds its
+token to route registration automatically.
+
+`PROXY` and `CLASSIC` continue to use the existing registration factory
+semantics. They do not combine automatically with the singleton default and
+retain the Awilix default transient lifetime.
+
 ---
 
 ## 📦 Deployment
