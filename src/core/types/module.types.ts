@@ -7,17 +7,20 @@ import { DependencyResolver } from './di.types';
 type InjectionToken = string;
 
 /**
- * DependencyRegistration defines a tuple that associates an InjectionToken
+ * DependencyRegistration defines a readonly tuple that associates an InjectionToken
  * with a DependencyResolver.
  * This tuple is used to register a service in the DI container.
  */
-export type DependencyRegistration = [InjectionToken, DependencyResolver];
+export type DependencyRegistration = readonly [
+  InjectionToken,
+  DependencyResolver,
+];
 
 /**
- * DependencyRegistrations defines an array of DependencyRegistration tuples.
- * It is used to represent multiple dependency registrations for a module.
+ * DependencyRegistrations is a readonly collection of registration tuples.
+ * Callers can iterate over declarations without owning module collection state.
  */
-export type DependencyRegistrations = DependencyRegistration[];
+export type DependencyRegistrations = readonly DependencyRegistration[];
 
 /**
  * The IModule interface defines the contract for modules that register dependencies.
@@ -25,9 +28,11 @@ export type DependencyRegistrations = DependencyRegistration[];
  */
 export interface IModule {
   /**
-   * The getRegisterDependencies method is responsible for returning the dependencies
-   * defined within the module that need to be registered into the DI container.
-   * @returns {DependencyRegistrations} - An array containing the dependency registration information for the module.
+   * Returns a readonly snapshot of the module's complete declarations.
+   * Repeated calls must preserve token, resolver mode, and declaration order
+   * without accumulation. Resolver reference identity need not be preserved.
+   * A failed collection propagates its original error without retaining partial
+   * registrations for the next call.
    */
   getRegisterDependencies: () => DependencyRegistrations;
 }

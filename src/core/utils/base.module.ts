@@ -1,6 +1,11 @@
 import { InjectionResolverMode } from 'src/core/constants';
 import { registerRouteToken } from 'src/core/server';
-import { ClassType, DependencyRegistrations, IModule } from 'src/core/types';
+import {
+  ClassType,
+  DependencyRegistration,
+  DependencyRegistrations,
+  IModule,
+} from 'src/core/types';
 import { makeDependencyRegistration } from './di-registration-factory';
 
 type DependencyRegistrationItem = readonly [
@@ -22,18 +27,26 @@ type DependencyRegistrationPair = readonly [
  * Singleton, Scoped, and Transient.
  */
 export default abstract class BaseModule implements IModule {
-  readonly dependencyRegistrations: DependencyRegistrations = [];
+  private readonly dependencyRegistrations: DependencyRegistration[] = [];
 
   /**
-   * Collects and returns the dependency registrations declared by this module.
+   * Rebuilds declarations from empty state and returns a readonly snapshot.
+   * Collection state is discarded even if registration throws; the original
+   * error propagates and a later call can retry the complete declaration.
    */
   getRegisterDependencies(): DependencyRegistrations {
-    this.registerDependencies();
-    return this.dependencyRegistrations;
+    this.dependencyRegistrations.length = 0;
+    try {
+      this.registerDependencies();
+      return [...this.dependencyRegistrations];
+    } finally {
+      this.dependencyRegistrations.length = 0;
+    }
   }
 
   /**
-   * Declares the dependencies owned by this module.
+   * Declares this module's dependencies deterministically on every collection.
+   * Place registration helper calls here so they are replayed during rebuilds.
    */
   abstract registerDependencies(): void;
 

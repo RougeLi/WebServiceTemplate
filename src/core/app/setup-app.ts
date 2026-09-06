@@ -1,4 +1,4 @@
-import { diContainerClassic } from '@fastify/awilix';
+import { createContainer, InjectionMode } from 'awilix';
 import { loadEnvironment, makeContainerRegistration } from 'src/core';
 import { initializeContainer } from 'src/core/di';
 import {
@@ -15,7 +15,9 @@ export default async function setupApp(
 ): Promise<IApplication> {
   loadEnvironment();
 
-  const container = initializeContainer(diContainerClassic);
+  const container = initializeContainer(
+    createContainer({ injectionMode: InjectionMode.CLASSIC }),
+  );
 
   registerContainers(container, globalContainerConfigEntries);
 

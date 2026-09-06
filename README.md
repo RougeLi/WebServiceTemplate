@@ -424,7 +424,9 @@ export class HelloModule extends BaseModule {
 
 ### Dependency Registration Helpers
 
-`registerDependency()` registers a singleton when its resolver mode is omitted:
+Declare dependencies inside `registerDependencies()` using the helpers below.
+`registerDependency()` registers a singleton when its resolver mode is omitted
+or explicitly `undefined`:
 
 ```typescript
 this.registerDependency(InjectionTokens.HELLO_SERVICE, HelloService);
@@ -456,12 +458,50 @@ Lifetime-specific helpers are available for single and batch registrations:
 | Transient | `registerTransient(token, classType)` | `registerTransients(items)`         |
 
 All registration helpers return the current module, so calls can be chained.
+Batch helpers accept readonly arrays and tuples, preserve input order, and
+treat empty arrays as chainable no-ops.
 Registering a class that extends `BaseRoute` through any helper also adds its
 token to route registration automatically.
 
 `PROXY` and `CLASSIC` continue to use the existing registration factory
 semantics. They do not combine automatically with the singleton default and
 retain the Awilix default transient lifetime.
+
+### Dependency Collection Lifecycle
+
+Each `getRegisterDependencies()` call starts from empty state and runs
+`registerDependencies()` again. Declare the same tokens, resolver modes, and
+order on every call; changing the dependency graph based on invocation count
+is unsupported. Resolver objects may be recreated on each collection.
+
+```typescript
+const module = new HelloModule();
+const first = module.getRegisterDependencies();
+const second = module.getRegisterDependencies();
+// Both contain one complete set of the Hello module's declarations.
+// Neither collection is extended by later calls.
+
+const modules = [module];
+const firstApp = await setupApp(globalDIConfigs, modules);
+const secondApp = await setupApp(globalDIConfigs, modules);
+// Each application gets a new container and its own singleton instances.
+```
+
+The returned collection and its registration tuples are readonly in TypeScript.
+`BaseModule` keeps its collection private and returns a defensive array copy;
+caller array mutations cannot affect the next collection. Runtime freezing and
+deep cloning of Awilix resolvers are not part of this contract.
+
+If registration throws, the original error propagates and partial dependency
+registrations are discarded. A retry rebuilds the entire declaration from
+empty state.
+
+Route tokens remain in the existing process-wide `Set`. Rebuilding may register
+the same route token again, and the `Set` deduplicates it without clearing tokens
+from other modules. A failed collection does not roll back route tokens; retrying
+the same deterministic declaration completes the set. Reusing the same module
+instances is supported; isolating route registries for different application
+compositions is outside this contract.
 
 ---
 

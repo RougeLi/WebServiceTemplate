@@ -25,7 +25,7 @@ export async function createWebServer(
   config: AppConfigType,
 ): Promise<WebServer> {
   // Initialize Fastify server instance
-  const webServer = await initializeWebServer(config);
+  const webServer = await initializeWebServer(container, config);
 
   // Resolve LoggerService and initialize it
   const loggerService = container.resolve<LoggerService>(
@@ -79,7 +79,10 @@ export async function createWebServer(
   return webServer;
 }
 
-async function initializeWebServer(config: AppConfigType): Promise<WebServer> {
+async function initializeWebServer(
+  container: AppContainer,
+  config: AppConfigType,
+): Promise<WebServer> {
   // Create Fastify instance with configuration
   const webServer = Fastify({
     logger: LoggerConfig[config.appEnv],
@@ -91,6 +94,7 @@ async function initializeWebServer(config: AppConfigType): Promise<WebServer> {
 
   // Register plugins
   await webServer.register(fastifyAwilixPlugin, {
+    container,
     disposeOnClose: true,
     disposeOnResponse: true,
   });
