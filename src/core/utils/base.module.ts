@@ -1,59 +1,151 @@
 import { InjectionResolverMode } from 'src/core/constants';
 import { registerRouteToken } from 'src/core/server';
-import { ClassType, DependencyRegistrations, IModule } from 'src/core/types';
+import {
+  ClassType,
+  DependencyRegistration,
+  DependencyRegistrations,
+  IModule,
+} from 'src/core/types';
 import { makeDependencyRegistration } from './di-registration-factory';
+
+type DependencyRegistrationItem = readonly [
+  injectionToken: string,
+  classType: ClassType,
+  injectionMode?: InjectionResolverMode,
+];
+
+type DependencyRegistrationPair = readonly [
+  injectionToken: string,
+  classType: ClassType,
+];
 
 /**
  * BaseModule is an abstract class that implements the IModule interface.
+ *
  * It provides a base structure for registering dependencies and routes within modules.
- * It also offers helper methods for different dependency injection scopes: Singleton, Scoped, and Transient.
+ * It also offers helper methods for different dependency injection scopes:
+ * Singleton, Scoped, and Transient.
  */
 export default abstract class BaseModule implements IModule {
-  readonly dependencyRegistrations: DependencyRegistrations = [];
+  private readonly dependencyRegistrations: DependencyRegistration[] = [];
 
   /**
-   * Retrieves the dependencies that have been registered for this module.
-   * This method first calls the abstract `registerDependencies` method to allow
-   * the module to define its dependencies, then returns the list of registered dependencies.
-   * @returns {DependencyRegistrations} - An array containing the dependency registration information for the module.
+   * Rebuilds declarations from empty state and returns a readonly snapshot.
+   * Collection state is discarded even if registration throws; the original
+   * error propagates and a later call can retry the complete declaration.
    */
   getRegisterDependencies(): DependencyRegistrations {
-    this.registerDependencies();
-    return this.dependencyRegistrations;
+    this.dependencyRegistrations.length = 0;
+    try {
+      this.registerDependencies();
+      return [...this.dependencyRegistrations];
+    } finally {
+      this.dependencyRegistrations.length = 0;
+    }
   }
 
   /**
-   * Abstract method to register module dependencies.
-   * Any class extending BaseModule must implement this method to define which dependencies
-   * will be injected into the DI container.
-   * @returns {DependencyRegistrations} - An array of DependencyRegistrations representing
-   * the token-resolver pairs to be registered in the DI container.
+   * Declares this module's dependencies deterministically on every collection.
+   * Place registration helper calls here so they are replayed during rebuilds.
    */
   abstract registerDependencies(): void;
 
   /**
-   * Registers a dependency for the module with a specific injection mode.
-   * This method registers the dependency under the specified InjectionToken and configures
-   * the injection mode (such as singleton, scoped, transient). It also registers the route token
-   * in the routing system using `registerRouteToken`.
-   *
-   * After registering the dependency, it adds the token and resolver to the `dependencyRegistrations` array.
-   *
-   * @param InjectionToken {string} - The token used to identify the dependency in the DI container.
-   * @param classType {ClassType} - The class constructor for the dependency to be registered.
-   * @param injectionMode {InjectionResolverMode} - The mode to use for injecting the dependency (singleton, scoped, etc.).
-   * @returns {this} - The module instance, allowing for method chaining.
+   * Registers one dependency and its route token when the class is a route.
+   * The resolver defaults to singleton when `injectionMode` is omitted.
    */
   registerDependency(
-    InjectionToken: string,
+    injectionToken: string,
     classType: ClassType,
-    injectionMode: InjectionResolverMode,
+    injectionMode: InjectionResolverMode = InjectionResolverMode.SINGLETON,
   ): this {
-    registerRouteToken(InjectionToken, classType);
+    registerRouteToken(injectionToken, classType);
 
     this.dependencyRegistrations.push(
-      makeDependencyRegistration(InjectionToken, classType, injectionMode),
+      makeDependencyRegistration(injectionToken, classType, injectionMode),
     );
+
+    return this;
+  }
+
+  /**
+   * Registers dependency tuples in input order, defaulting omitted modes to
+   * singleton.
+   */
+  registerDependenciesByItems(
+    items: readonly DependencyRegistrationItem[],
+  ): this {
+    for (const [injectionToken, classType, injectionMode] of items) {
+      this.registerDependency(injectionToken, classType, injectionMode);
+    }
+
+    return this;
+  }
+
+  /**
+   * Registers one singleton dependency.
+   */
+  registerSingleton(injectionToken: string, classType: ClassType): this {
+    return this.registerDependency(
+      injectionToken,
+      classType,
+      InjectionResolverMode.SINGLETON,
+    );
+  }
+
+  /**
+   * Registers one scoped dependency.
+   */
+  registerScoped(injectionToken: string, classType: ClassType): this {
+    return this.registerDependency(
+      injectionToken,
+      classType,
+      InjectionResolverMode.SCOPED,
+    );
+  }
+
+  /**
+   * Registers one transient dependency.
+   */
+  registerTransient(injectionToken: string, classType: ClassType): this {
+    return this.registerDependency(
+      injectionToken,
+      classType,
+      InjectionResolverMode.TRANSIENT,
+    );
+  }
+
+  /**
+   * Registers dependency tuples as singletons in input order.
+   */
+  registerSingletons(items: readonly DependencyRegistrationPair[]): this {
+    for (const [injectionToken, classType] of items) {
+      this.registerSingleton(injectionToken, classType);
+    }
+
+    return this;
+  }
+
+  /**
+   * Registers dependency tuples with scoped lifetimes in input order.
+   */
+  registerScopedDependencies(
+    items: readonly DependencyRegistrationPair[],
+  ): this {
+    for (const [injectionToken, classType] of items) {
+      this.registerScoped(injectionToken, classType);
+    }
+
+    return this;
+  }
+
+  /**
+   * Registers dependency tuples as transients in input order.
+   */
+  registerTransients(items: readonly DependencyRegistrationPair[]): this {
+    for (const [injectionToken, classType] of items) {
+      this.registerTransient(injectionToken, classType);
+    }
 
     return this;
   }
