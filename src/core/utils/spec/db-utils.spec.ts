@@ -4,7 +4,30 @@ import {
   PrismaLogLevels,
   PrismaQueryEvent,
 } from 'src/core/types';
-import DbUtils, { formatQueryEvent } from '../db-utils';
+import { Prisma } from 'src/generated/prisma/client';
+import DbUtils, {
+  DatabaseConfigurationError,
+  formatQueryEvent,
+  getDriverAdapterErrorKind,
+  isFailFastConnectionError,
+  parseDatabaseUrl,
+} from '../db-utils';
+
+/**
+ * Builds an error shaped like the ones Prisma 7 + PrismaPg throw for
+ * `$queryRaw` connection failures (code P2010, kind under
+ * meta.driverAdapterError.cause).
+ */
+function driverAdapterError(
+  kind: string,
+  code = 'P2010',
+): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(`Raw query failed: ${kind}`, {
+    code,
+    clientVersion: '7.10.1',
+    meta: { driverAdapterError: { cause: { kind } } },
+  });
+}
 
 describe('DbUtils', () => {
   let loggerMock: jest.Mocked<LoggerService>;
@@ -29,6 +52,7 @@ describe('DbUtils', () => {
       $on: jest.fn(),
       $connect: jest.fn(),
       $disconnect: jest.fn(),
+      $queryRaw: jest.fn(),
     } as unknown as jest.Mocked<CustomPrismaClient>;
   });
 
@@ -81,6 +105,28 @@ describe('DbUtils', () => {
         'error',
         expect.any(Function),
       );
+    });
+
+    it('should route info, warn and error events to the matching logger level', () => {
+      DbUtils.setupLogging(
+        loggerMock,
+        ['info', 'warn', 'error'],
+        defaultFormatOptions,
+        prismaMock,
+      );
+      const callbackFor = (level: string) =>
+        (prismaMock.$on as jest.Mock).mock.calls.find(
+          (call) => call[0] === level,
+        )?.[1];
+
+      const event = { message: 'event message' };
+      callbackFor('info')(event);
+      callbackFor('warn')(event);
+      callbackFor('error')(event);
+
+      expect(loggerMock.info).toHaveBeenCalledWith(event);
+      expect(loggerMock.warn).toHaveBeenCalledWith(event);
+      expect(loggerMock.error).toHaveBeenCalledWith(event);
     });
 
     it('should use logger.info for query logging when forceQueryLog is true', () => {
@@ -158,6 +204,21 @@ describe('DbUtils', () => {
       expect(result).toContain('"foo": "bar"');
     });
 
+    it('should round fractional durations reported by driver adapters to whole milliseconds', () => {
+      const event: PrismaQueryEvent = {
+        timestamp: new Date(),
+        query: 'SELECT 1',
+        params: '[]',
+        duration: 2.9968441,
+        target: 'ClientEngine',
+      };
+
+      expect(callFormat(event)).toContain('Query executed in 3 ms:');
+      expect(callFormat({ ...event, duration: 0.31 })).toContain(
+        'Query executed in 0 ms:',
+      );
+    });
+
     it('should format the query event with invalid JSON string (enableJsonParse = true)', () => {
       const event: PrismaQueryEvent = {
         timestamp: new Date(),
@@ -223,6 +284,176 @@ describe('DbUtils', () => {
     });
   });
 
+  describe('parseDatabaseUrl', () => {
+    const secret = 'S3cr3t-P@ss';
+    const encodedSecret = encodeURIComponent(secret);
+
+    it('should return the trimmed connection string for a postgresql:// URL', () => {
+      const url = `postgresql://app:${encodedSecret}@db.example.com:5432/app_db`;
+      expect(parseDatabaseUrl(`  ${url}\n`)).toEqual({
+        connectionString: url,
+        schema: undefined,
+        ignoredParameters: [],
+      });
+    });
+
+    it('should accept the postgres:// scheme', () => {
+      expect(
+        parseDatabaseUrl('postgres://app@db.example.com/app_db')
+          .connectionString,
+      ).toBe('postgres://app@db.example.com/app_db');
+    });
+
+    it('should accept a host given as a query parameter (Unix socket)', () => {
+      expect(() =>
+        parseDatabaseUrl('postgresql:///app_db?host=/var/run/postgresql'),
+      ).not.toThrow();
+    });
+
+    it('should return the schema parameter', () => {
+      expect(
+        parseDatabaseUrl('postgresql://app@db/app_db?schema=tenant_a').schema,
+      ).toBe('tenant_a');
+      expect(
+        parseDatabaseUrl('postgresql://app@db/app_db?schema=').schema,
+      ).toBeUndefined();
+    });
+
+    it('should list Prisma 6 parameters that the pg driver ignores', () => {
+      const { ignoredParameters } = parseDatabaseUrl(
+        'postgresql://app@db/app_db?connection_limit=1&pool_timeout=5&schema=public&sslmode=require&application_name=svc&pgbouncer=true',
+      );
+      expect(ignoredParameters).toEqual([
+        'connection_limit',
+        'pool_timeout',
+        'pgbouncer',
+      ]);
+    });
+
+    it.each([
+      ['undefined', undefined, 'DATABASE_URL is not set or empty.'],
+      ['an empty string', '', 'DATABASE_URL is not set or empty.'],
+      ['whitespace only', '   \t', 'DATABASE_URL is not set or empty.'],
+      ['not a URL', 'not-a-url', 'DATABASE_URL is not a valid URL.'],
+      [
+        'another scheme',
+        `mysql://app:${encodedSecret}@db/app_db`,
+        'DATABASE_URL must use the postgresql:// or postgres:// scheme.',
+      ],
+      [
+        'credentials without a host',
+        `postgresql://app:${encodedSecret}@/app_db`,
+        'DATABASE_URL is not a valid URL.',
+      ],
+      [
+        'a path without a host',
+        'postgresql:///app_db',
+        'DATABASE_URL must include a host.',
+      ],
+      ['a scheme only', 'postgresql://', 'DATABASE_URL must include a host.'],
+    ])(
+      'should reject %s with a DatabaseConfigurationError that hides the URL',
+      (_label, value, message) => {
+        let thrown: unknown;
+        try {
+          parseDatabaseUrl(value);
+        } catch (error) {
+          thrown = error;
+        }
+        expect(thrown).toBeInstanceOf(DatabaseConfigurationError);
+        const error = thrown as DatabaseConfigurationError;
+        expect(error.name).toBe('DatabaseConfigurationError');
+        expect(error.message).toBe(message);
+        expect(error.message).not.toContain(secret);
+        expect(error.message).not.toContain(encodedSecret);
+        expect(error.cause).toBeUndefined();
+      },
+    );
+  });
+
+  describe('getDriverAdapterErrorKind', () => {
+    it('should read meta.driverAdapterError.cause.kind', () => {
+      expect(
+        getDriverAdapterErrorKind(driverAdapterError('AuthenticationFailed')),
+      ).toBe('AuthenticationFailed');
+    });
+
+    it.each([
+      ['a plain Error', new Error('Connection terminated')],
+      ['null', null],
+      ['a string', 'boom'],
+      ['an error without cause', { meta: { driverAdapterError: {} } }],
+      [
+        'a non-string kind',
+        { meta: { driverAdapterError: { cause: { kind: 42 } } } },
+      ],
+    ])('should return undefined for %s', (_label, error) => {
+      expect(getDriverAdapterErrorKind(error)).toBeUndefined();
+    });
+  });
+
+  describe('isFailFastConnectionError', () => {
+    it.each([
+      'AuthenticationFailed',
+      'DatabaseDoesNotExist',
+      'DatabaseAccessDenied',
+      'TlsConnectionError',
+    ])('should fail fast on %s', (kind) => {
+      expect(isFailFastConnectionError(driverAdapterError(kind))).toBe(true);
+      expect(isFailFastConnectionError(driverAdapterError(kind, 'P1000'))).toBe(
+        true,
+      );
+    });
+
+    it.each([
+      'DatabaseNotReachable',
+      'SocketTimeout',
+      'ConnectionClosed',
+      'TooManyConnections',
+      'postgres',
+    ])('should retry on %s', (kind) => {
+      expect(isFailFastConnectionError(driverAdapterError(kind))).toBe(false);
+    });
+
+    it('should fail fast on configuration errors', () => {
+      expect(
+        isFailFastConnectionError(new DatabaseConfigurationError('invalid')),
+      ).toBe(true);
+    });
+
+    it('should fail fast when pg reports a missing password', () => {
+      expect(
+        isFailFastConnectionError(
+          new Error(
+            'SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string',
+          ),
+        ),
+      ).toBe(true);
+    });
+
+    it('should retry on plain errors such as the pg connection timeout', () => {
+      expect(
+        isFailFastConnectionError(
+          new Error('Connection terminated due to connection timeout'),
+        ),
+      ).toBe(false);
+      expect(
+        isFailFastConnectionError(
+          new Error('timeout exceeded when trying to connect'),
+        ),
+      ).toBe(false);
+      expect(isFailFastConnectionError('not an error')).toBe(false);
+    });
+
+    it('should not use Prisma error codes or message text for classification', () => {
+      const authLikeMessage = new Prisma.PrismaClientKnownRequestError(
+        'Authentication failed against the database server',
+        { code: 'P1000', clientVersion: '7.10.1' },
+      );
+      expect(isFailFastConnectionError(authLikeMessage)).toBe(false);
+    });
+  });
+
   describe('getConnectMethod', () => {
     let connectMethod: () => Promise<void>;
 
@@ -234,42 +465,69 @@ describe('DbUtils', () => {
 
     afterEach(() => {
       jest.useRealTimers();
+      jest.restoreAllMocks();
       jest.clearAllMocks();
     });
 
-    it('should connect on the first attempt successfully', async () => {
+    it('should be ready only after SELECT 1 succeeds', async () => {
       prismaMock.$connect.mockResolvedValueOnce(undefined);
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ '?column?': 1 }]);
 
-      const connectPromise = connectMethod();
-      await connectPromise;
+      await connectMethod();
 
       expect(loggerMock.info).toHaveBeenCalledWith(
         'Connecting to the database...',
       );
       expect(prismaMock.$connect).toHaveBeenCalledTimes(1);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+      const [strings] = prismaMock.$queryRaw.mock.calls[0];
+      expect(strings.join('')).toBe('SELECT 1');
+      expect(prismaMock.$queryRaw.mock.invocationCallOrder[0]).toBeGreaterThan(
+        prismaMock.$connect.mock.invocationCallOrder[0],
+      );
+      expect(loggerMock.info).toHaveBeenCalledWith(
+        'Database connection established.',
+      );
+    });
+
+    it('should not treat a resolved $connect() as ready when the query fails', async () => {
+      prismaMock.$connect.mockResolvedValue(undefined);
+      prismaMock.$queryRaw
+        .mockRejectedValueOnce(driverAdapterError('DatabaseNotReachable'))
+        .mockResolvedValueOnce([{ '?column?': 1 }]);
+
+      const connectPromise = connectMethod();
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(loggerMock.info).not.toHaveBeenCalledWith(
+        'Database connection established.',
+      );
+
+      await jest.runOnlyPendingTimersAsync();
+      await connectPromise;
+
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
       expect(loggerMock.info).toHaveBeenCalledWith(
         'Database connection established.',
       );
     });
 
     it('should retry on failure and eventually succeed', async () => {
-      prismaMock.$connect
+      prismaMock.$connect.mockResolvedValue(undefined);
+      prismaMock.$queryRaw
         .mockRejectedValueOnce(new Error('Connection error #1'))
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce([{ '?column?': 1 }]);
 
       const connectPromise = connectMethod();
-      // Wait for the promise queue and simulate backoff delay
-      await Promise.resolve();
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await jest.runOnlyPendingTimersAsync();
       await connectPromise;
 
-      expect(prismaMock.$connect).toHaveBeenCalledTimes(2);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
       expect(loggerMock.info).toHaveBeenCalledWith(
         'Connecting to the database...',
       );
       expect(loggerMock.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Attempt 1 failed: Connection error #1'),
+        'Attempt 1 failed (Error): Connection error #1',
       );
       expect(loggerMock.info).toHaveBeenCalledWith(
         expect.stringMatching(/Waiting for \d+ ms before next attempt./),
@@ -279,18 +537,92 @@ describe('DbUtils', () => {
       );
     });
 
-    it('should throw if authentication error is encountered', async () => {
-      const authError = new Error('Authentication error');
-      prismaMock.$connect.mockRejectedValueOnce(authError);
+    it.each([
+      'DatabaseNotReachable',
+      'SocketTimeout',
+      'ConnectionClosed',
+      'TooManyConnections',
+    ])('should retry when the driver adapter reports %s', async (kind) => {
+      prismaMock.$connect.mockResolvedValue(undefined);
+      prismaMock.$queryRaw
+        .mockRejectedValueOnce(driverAdapterError(kind))
+        .mockResolvedValueOnce([{ '?column?': 1 }]);
 
-      await expect(connectMethod()).rejects.toThrow(authError);
-      expect(loggerMock.info).toHaveBeenCalledWith(
-        'Connecting to the database...',
+      const connectPromise = connectMethod();
+      await jest.runOnlyPendingTimersAsync();
+      await connectPromise;
+
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(loggerMock.warn).toHaveBeenCalledWith(
+        expect.stringContaining(`Attempt 1 failed (${kind})`),
       );
+    });
+
+    it('should back off by 1000 ms × attempt plus jitter, capped at 30 s', async () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.999);
+      prismaMock.$connect.mockResolvedValue(undefined);
+      for (let i = 0; i < 31; i++) {
+        prismaMock.$queryRaw.mockRejectedValueOnce(
+          driverAdapterError('DatabaseNotReachable'),
+        );
+      }
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ '?column?': 1 }]);
+
+      const connectPromise = connectMethod();
+      for (let i = 0; i < 31; i++) {
+        await jest.runOnlyPendingTimersAsync();
+      }
+      await connectPromise;
+
+      const delays = (setTimeout as unknown as jest.Mock).mock.calls.map(
+        (call) => call[1],
+      );
+      expect(delays.slice(0, 3)).toEqual([1499, 2499, 3499]);
+      expect(delays[28]).toBe(29499);
+      expect(delays[29]).toBe(30000);
+      expect(delays[30]).toBe(30000);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(32);
+    });
+
+    it.each([
+      'AuthenticationFailed',
+      'DatabaseDoesNotExist',
+      'DatabaseAccessDenied',
+      'TlsConnectionError',
+    ])('should throw without retrying on %s', async (kind) => {
+      const error = driverAdapterError(kind);
+      prismaMock.$connect.mockResolvedValueOnce(undefined);
+      prismaMock.$queryRaw.mockRejectedValueOnce(error);
+
+      await expect(connectMethod()).rejects.toBe(error);
       expect(loggerMock.error).toHaveBeenCalledWith(
-        'Failed to connect to the database due to authentication error.',
+        `Failed to connect to the database (${kind}); not retrying.`,
       );
-      expect(prismaMock.$connect).toHaveBeenCalledTimes(1);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(setTimeout).not.toHaveBeenCalled();
+    });
+
+    it('should throw without retrying when the password is missing', async () => {
+      const error = new Error(
+        'SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string',
+      );
+      prismaMock.$connect.mockResolvedValueOnce(undefined);
+      prismaMock.$queryRaw.mockRejectedValueOnce(error);
+
+      await expect(connectMethod()).rejects.toBe(error);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(setTimeout).not.toHaveBeenCalled();
+    });
+
+    it('should throw without retrying on configuration errors', async () => {
+      const error = new DatabaseConfigurationError('invalid');
+      prismaMock.$connect.mockRejectedValueOnce(error);
+
+      await expect(connectMethod()).rejects.toBe(error);
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'Failed to connect to the database (DatabaseConfigurationError); not retrying.',
+      );
+      expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
     });
   });
 

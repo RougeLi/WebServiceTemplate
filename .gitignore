@@ -30,6 +30,7 @@ Thumbs.db
 
 # Prisma generated cache/client
 prisma/client_*/
+src/generated/
 
 # Test source and outputs
 tests/

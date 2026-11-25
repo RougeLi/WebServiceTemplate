@@ -1,17 +1,20 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// The datasource URL, migrations path and seed command are configured in the
+// root prisma.config.ts (Prisma CLI). The runtime connection is created by
+// src/core/services/prisma.service.ts through the PostgreSQL driver adapter.
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+  importFileExtension    = ""
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model log {
@@ -21,4 +24,6 @@ model log {
   metadata  Json
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@map("Log")
 }

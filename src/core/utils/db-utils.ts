@@ -2,6 +2,7 @@ import {
   CustomPrismaClient,
   FormatQueryEventOptions,
   ILoggerService,
+  ParsedDatabaseUrl,
   PrismaLogLevels,
   PrismaQueryEvent,
 } from 'src/core/types';
@@ -16,6 +17,139 @@ enum LogLevel {
 const TRUNCATED_STRING = '... (truncated)';
 
 const MAX_STRING_LENGTH = 1000;
+
+const SUPPORTED_DATABASE_URL_PROTOCOLS = new Set(['postgres:', 'postgresql:']);
+
+/**
+ * Prisma 6 connection URL parameters that the pg driver used by
+ * `@prisma/adapter-pg` does not apply. Pool size and timeouts are configured
+ * through DATABASE_POOL_MAX and DATABASE_CONNECTION_TIMEOUT_MS instead.
+ */
+const IGNORED_PRISMA6_URL_PARAMETERS = [
+  'connection_limit',
+  'pool_timeout',
+  'connect_timeout',
+  'socket_timeout',
+  'pgbouncer',
+  'statement_cache_size',
+  'channel_binding',
+  'sslaccept',
+  'sslidentity',
+  'sslpassword',
+];
+
+/**
+ * Driver adapter error kinds that will not resolve by retrying.
+ * See `error.meta.driverAdapterError.cause.kind`.
+ */
+const FAIL_FAST_DRIVER_ADAPTER_ERROR_KINDS = new Set([
+  'AuthenticationFailed',
+  'DatabaseDoesNotExist',
+  'DatabaseAccessDenied',
+  'TlsConnectionError',
+]);
+
+/**
+ * pg rejects a missing password with a plain Error (no SQLSTATE, so no
+ * driver adapter `kind`) when the server asks for SCRAM authentication.
+ */
+const MISSING_PASSWORD_ERROR_MESSAGE = 'client password must be a string';
+
+/**
+ * Thrown when the database connection settings are missing or invalid.
+ * The message never contains the connection string.
+ */
+export class DatabaseConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DatabaseConfigurationError';
+  }
+}
+
+/**
+ * Validates DATABASE_URL before a driver adapter is created.
+ *
+ * pg silently falls back to its defaults (localhost:5432 and the OS user)
+ * when the connection string is undefined, empty or has no host, and
+ * resolves a non-URL value as a host name. This check fails first, without
+ * echoing the URL.
+ */
+export function parseDatabaseUrl(
+  databaseUrl: string | undefined,
+): ParsedDatabaseUrl {
+  const connectionString = databaseUrl?.trim();
+  if (!connectionString) {
+    throw new DatabaseConfigurationError('DATABASE_URL is not set or empty.');
+  }
+
+  let url: URL;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    throw new DatabaseConfigurationError('DATABASE_URL is not a valid URL.');
+  }
+
+  if (!SUPPORTED_DATABASE_URL_PROTOCOLS.has(url.protocol)) {
+    throw new DatabaseConfigurationError(
+      'DATABASE_URL must use the postgresql:// or postgres:// scheme.',
+    );
+  }
+
+  if (!url.hostname && !url.searchParams.get('host')) {
+    throw new DatabaseConfigurationError('DATABASE_URL must include a host.');
+  }
+
+  const schema = url.searchParams.get('schema')?.trim() || undefined;
+  const ignoredParameters = IGNORED_PRISMA6_URL_PARAMETERS.filter((name) =>
+    url.searchParams.has(name),
+  );
+
+  return { connectionString, schema, ignoredParameters };
+}
+
+/**
+ * Returns `error.meta.driverAdapterError.cause.kind`, the driver adapter's
+ * classification of a database error, or undefined for other errors.
+ */
+export function getDriverAdapterErrorKind(error: unknown): string | undefined {
+  const kind = (
+    error as {
+      meta?: { driverAdapterError?: { cause?: { kind?: unknown } } };
+    } | null
+  )?.meta?.driverAdapterError?.cause?.kind;
+  return typeof kind === 'string' ? kind : undefined;
+}
+
+/**
+ * Whether a readiness failure must stop startup instead of being retried:
+ * configuration errors, authentication / access / TLS failures, a missing
+ * database and a missing password. Everything else (unreachable host,
+ * socket timeout, closed connection, too many connections, plain errors such
+ * as the pg connection timeout) is treated as temporary.
+ */
+export function isFailFastConnectionError(error: unknown): boolean {
+  if (error instanceof DatabaseConfigurationError) {
+    return true;
+  }
+
+  const kind = getDriverAdapterErrorKind(error);
+  if (kind !== undefined) {
+    return FAIL_FAST_DRIVER_ADAPTER_ERROR_KINDS.has(kind);
+  }
+
+  return (
+    error instanceof Error &&
+    error.message.includes(MISSING_PASSWORD_ERROR_MESSAGE)
+  );
+}
+
+function describeConnectionError(error: unknown): string {
+  const kind = getDriverAdapterErrorKind(error);
+  if (kind !== undefined) {
+    return kind;
+  }
+  return error instanceof Error ? error.name : typeof error;
+}
 
 function setupLogging(
   logger: ILoggerService,
@@ -63,7 +197,7 @@ export function formatQueryEvent(
     const { query, params, duration } = event;
     return [
       'Query executed in ',
-      duration,
+      Math.round(duration),
       ' ms:',
       delimiter,
       query,
@@ -116,6 +250,13 @@ function truncateToMaxLength(value: string, maxLen: number): string {
     : value;
 }
 
+/**
+ * Returns a connect method that resolves only after the database answers a
+ * real query. With driver adapters `$connect()` does not open a connection,
+ * so readiness is `SELECT 1`. Temporary failures are retried without limit
+ * (1000 ms × attempt + 0–500 ms jitter, capped at 30 s); fail-fast errors
+ * (see isFailFastConnectionError) are rethrown immediately.
+ */
 function getConnectMethod(
   logger: ILoggerService,
   prisma: CustomPrismaClient,
@@ -131,18 +272,21 @@ function getConnectMethod(
       try {
         logger.info('Connecting to the database...');
         await prisma.$connect();
+        await prisma.$queryRaw`SELECT 1`;
         logger.info('Database connection established.');
         return;
       } catch (error) {
-        if (isAuthenticationError(error)) {
+        if (isFailFastConnectionError(error)) {
           logger.error(
-            'Failed to connect to the database due to authentication error.',
+            `Failed to connect to the database (${describeConnectionError(error)}); not retrying.`,
           );
           throw error;
         }
 
         attempt++;
-        logger.warn(`Attempt ${attempt} failed: ${(error as Error).message}`);
+        logger.warn(
+          `Attempt ${attempt} failed (${describeConnectionError(error)}): ${String((error as Error)?.message).trim()}`,
+        );
 
         let backoffTime = baseDelay * attempt;
         const jitter = Math.floor(Math.random() * maxJitter);
@@ -153,10 +297,6 @@ function getConnectMethod(
       }
     }
   };
-}
-
-function isAuthenticationError(error: any): boolean {
-  return error.code === 'P1000' || error.message.includes('Authentication');
 }
 
 function getDisconnectMethod(
@@ -181,6 +321,9 @@ const DbUtils = {
   setupLogging,
   getConnectMethod,
   getDisconnectMethod,
+  parseDatabaseUrl,
+  getDriverAdapterErrorKind,
+  isFailFastConnectionError,
 };
 
 export default DbUtils;

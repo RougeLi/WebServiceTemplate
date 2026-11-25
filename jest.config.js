@@ -7,6 +7,7 @@ const config = {
   collectCoverageFrom: ['**/*.(t|j)s'],
   coveragePathIgnorePatterns: [
     '/node_modules/',
+    '/src/generated/',
     '/prisma/',
     '/tests/',
     '/test-utils/',

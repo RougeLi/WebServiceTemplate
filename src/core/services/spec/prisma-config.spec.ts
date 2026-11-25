@@ -1,8 +1,13 @@
-import { asClass, AwilixContainer } from 'awilix';
+import { asClass, asValue, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
+import { getEnvironmentServiceMock } from 'test-utils/mocks';
 import { ContainerTokens, Environment } from 'src/core/constants';
+import { DatabaseConfigurationError } from 'src/core/utils/db-utils';
 import { AppConfigType } from '../../types';
-import PrismaConfig from '../prisma.config';
+import PrismaConfig, {
+  DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS,
+  DEFAULT_DATABASE_POOL_MAX,
+} from '../prisma.config';
 
 describe('PrismaConfig', () => {
   let container: AwilixContainer;
@@ -166,5 +171,109 @@ describe('PrismaConfig', () => {
         expect(options).toEqual(expectedOptions);
       });
     });
+  });
+
+  describe('database pool settings', () => {
+    const resolveWithConfig = (config: Partial<AppConfigType>) => {
+      const configuredContainer = getTestContainer();
+      configuredContainer.register(
+        ContainerTokens.ENVIRONMENT,
+        asValue(
+          getEnvironmentServiceMock({
+            appEnv: Environment.PRODUCTION,
+            ...config,
+          }),
+        ),
+      );
+      configuredContainer.register(
+        ContainerTokens.PRISMA_CONFIG,
+        asClass(PrismaConfig).singleton(),
+      );
+      return configuredContainer.resolve<PrismaConfig>(
+        ContainerTokens.PRISMA_CONFIG,
+      );
+    };
+
+    it('should default the pool to 10 connections and a 10 s connection timeout', () => {
+      expect(DEFAULT_DATABASE_POOL_MAX).toBe(10);
+      expect(DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS).toBe(10000);
+      expect(prismaConfig.databasePoolMax).toBe(10);
+      expect(prismaConfig.databaseConnectionTimeoutMs).toBe(10000);
+    });
+
+    it('should use the configured pool size and connection timeout', () => {
+      const config = resolveWithConfig({
+        databasePoolMax: 3,
+        databaseConnectionTimeoutMs: 2500,
+      });
+      expect(config.databasePoolMax).toBe(3);
+      expect(config.databaseConnectionTimeoutMs).toBe(2500);
+    });
+  });
+
+  describe('getDatabaseConnectionOptions', () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+
+    afterEach(() => {
+      if (originalDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
+    });
+
+    it('should not read DATABASE_URL while the config is constructed', () => {
+      delete process.env.DATABASE_URL;
+      expect(() =>
+        getTestContainer()
+          .register(
+            ContainerTokens.PRISMA_CONFIG,
+            asClass(PrismaConfig).singleton(),
+          )
+          .resolve(ContainerTokens.PRISMA_CONFIG),
+      ).not.toThrow();
+    });
+
+    it('should build the PrismaPg pool config from DATABASE_URL', () => {
+      process.env.DATABASE_URL =
+        ' postgresql://app:secret@db.example.com:5432/app_db ';
+      expect(prismaConfig.getDatabaseConnectionOptions()).toEqual({
+        poolConfig: {
+          connectionString:
+            'postgresql://app:secret@db.example.com:5432/app_db',
+          max: 10,
+          connectionTimeoutMillis: 10000,
+        },
+        adapterOptions: {},
+        ignoredUrlParameters: [],
+      });
+    });
+
+    it('should pass ?schema= to the adapter and report ignored Prisma 6 parameters', () => {
+      const options = prismaConfig.getDatabaseConnectionOptions(
+        'postgresql://app@db/app_db?schema=tenant_a&connection_limit=5',
+      );
+      expect(options.adapterOptions).toEqual({ schema: 'tenant_a' });
+      expect(options.ignoredUrlParameters).toEqual(['connection_limit']);
+    });
+
+    it.each([
+      ['missing', undefined],
+      ['blank', '  '],
+      ['invalid', 'not-a-url'],
+      ['not PostgreSQL', 'mysql://app:secret@db/app_db'],
+    ])(
+      'should throw a DatabaseConfigurationError when DATABASE_URL is %s',
+      (_label, databaseUrl) => {
+        if (databaseUrl === undefined) {
+          delete process.env.DATABASE_URL;
+        } else {
+          process.env.DATABASE_URL = databaseUrl;
+        }
+        expect(() => prismaConfig.getDatabaseConnectionOptions()).toThrow(
+          DatabaseConfigurationError,
+        );
+      },
+    );
   });
 });

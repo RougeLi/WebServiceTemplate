@@ -3,7 +3,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-Latest-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-5.x-000000?style=flat&logo=fastify)](https://www.fastify.io/)
-[![Prisma](https://img.shields.io/badge/Prisma-6.x-2D3748?style=flat&logo=prisma)](https://www.prisma.io/)
+[![Prisma](https://img.shields.io/badge/Prisma-7.10.1-2D3748?style=flat&logo=prisma)](https://www.prisma.io/)
 [![PNPM](https://img.shields.io/badge/PNPM-Latest-F69220?style=flat&logo=pnpm)](https://pnpm.io)
 
 A foundational template for efficiently developing scalable web service applications.
@@ -15,6 +15,7 @@ A foundational template for efficiently developing scalable web service applicat
 - [📂 Project Structure](#-project-structure)
 - [🏗 System Architecture](#-system-architecture)
 - [💻 Development Guide](#-development-guide)
+- [🗄 Database (Prisma 7)](#-database-prisma-7)
 - [⚙️ Environment Variables](#-environment-variables)
 - [📦 Deployment](#-deployment)
 - [🔧 Module Setup Example](#-module-setup-example)
@@ -76,11 +77,18 @@ an efficient and scalable foundation for web service development.
 
 5. **Compile TypeScript files**
 
+   `build` generates the Prisma Client first and then compiles; no database is
+   needed.
+
    ```bash
    pnpm run build
    ```
 
 6. **Start the development server**
+
+   `start` also runs `prisma:generate` before the watchers. The server needs a
+   reachable PostgreSQL database (see
+   [Setting Up a Local PostgreSQL Database](#setting-up-a-local-postgresql-database)).
 
    ```bash
    pnpm start
@@ -96,6 +104,11 @@ This project follows a clear separation between core components and business mod
 ├── README.md
 ├── index.ts                # Application entry point
 ├── package.json
+├── prisma.config.ts        # Prisma CLI configuration (schema, migrations, seed, datasource URL)
+├── prisma/
+│   ├── schema.prisma       # Prisma schema (generator + models)
+│   ├── migrations/         # Migration history (never rewritten)
+│   └── seed.ts             # Seed entry point (`pnpm run prisma:seed`)
 ├── tsconfig.json
 ├── tsconfig.eslint.json
 ├── eslint.config.mjs
@@ -122,6 +135,7 @@ This project follows a clear separation between core components and business mod
 │   │   │   └── ...
 │   │   ├── utils/          # Utility functions and base module classes
 │   │   └── index.ts
+│   ├── generated/prisma/   # Generated Prisma Client (`prisma generate`, not committed)
 │   ├── modules/            # Business modules (each module can be later extracted as an independent package)
 │   │   ├── hello/          # Example Hello module
 │   │   │   ├── constants/
@@ -300,6 +314,17 @@ Web Service Template adopts a modular architecture that separates core framework
   pnpm run unittest:coverage
   ```
 
+- **prisma:generate**: Generate the Prisma Client into `src/generated/prisma`
+  (no database needed)
+  ```bash
+  pnpm run prisma:generate
+  ```
+
+- **prisma:migrate** / **prisma:deploy** / **prisma:reset**: `prisma migrate dev`,
+  `prisma migrate deploy` and `prisma migrate reset` (need `DATABASE_URL`)
+
+- **prisma:seed**: Run `prisma db seed` (needs `DATABASE_URL`)
+
 ### Development Workflow
 
 1. **Live Reloading**  
@@ -335,14 +360,235 @@ Web Service Template adopts a modular architecture that separates core framework
    ```
 
 4. **Prepare the database**  
-   Make sure your Prisma models are defined in `schema.prisma` before running migrations.
+   Set `DATABASE_URL` in `.env`, then run the steps explicitly. Prisma 7's
+   `migrate dev` does not generate the Client or run the seed for you:
    ```bash
-   pnpm run prisma:migrate
+   pnpm run prisma:migrate    # create/apply migrations
+   pnpm run prisma:generate   # regenerate the Client
+   pnpm run prisma:seed       # optional; the template has no seed data
    ```
-   Or generate the Prisma client:
-   ```bash
-   pnpm run prisma:generate
-   ```
+   See [Database (Prisma 7)](#-database-prisma-7) for details.
+
+---
+
+## 🗄 Database (Prisma 7)
+
+### Versions and upgrades
+
+`prisma` (devDependency), `@prisma/client` and `@prisma/adapter-pg`
+(dependencies) are pinned to the same exact version, **7.10.1**. Upgrade the
+three packages together, by hand, and rerun the checks below.
+`pnpm-workspace.yaml` lists them under `updateConfig.ignoreDependencies`, so
+`pnpm run update:dependencies` (`pnpm update --latest`) leaves them alone;
+without it, `prisma` would move to the `latest` dist-tag (an 8.x release
+candidate at the time of writing) while the other two stay on 7.x.
+
+The pg pool is created by `@prisma/adapter-pg`; the project does not import
+`pg` directly and does not declare `pg` / `@types/pg`. If code ever needs
+`pg` directly, add it as a runtime dependency (and `@types/pg` as a
+devDependency) instead of relying on the transitive copy.
+
+### CLI configuration vs. runtime configuration
+
+| | Prisma CLI | Application runtime |
+| --- | --- | --- |
+| Entry | `prisma.config.ts` (repository root) | `src/core/services/prisma.config.ts` + `prisma.service.ts` |
+| Loads `.env` | `dotenv/config` (variables already in the environment win) | `loadEnvironment()` in `setupApp` |
+| Database URL | `process.env.DATABASE_URL`, trimmed; `datasource` is omitted when empty | `DATABASE_URL`, validated before the adapter is created |
+| Used for | `generate`, `migrate *`, `db seed` | Shared `PrismaService` (`ContainerTokens.PRISMA`) |
+
+The application never imports `prisma.config.ts`, and the CLI config never
+loads the application, DI or logger. Without `DATABASE_URL`,
+`prisma generate` still works; `migrate dev`, `migrate deploy`,
+`migrate status` and `migrate reset` stop with
+`The datasource.url property is required in your Prisma config file` and exit 1.
+`prisma db seed` does not check the URL itself, so `prisma/seed.ts` validates
+`DATABASE_URL` first and exits non-zero without printing
+`Seeding completed.` when it is missing or invalid.
+
+### Explicit operation order
+
+Prisma 7 does not chain these steps for you, and nothing runs migrations or
+seeds during `generate`, `build` or a normal application start.
+
+```bash
+# Local development, after editing prisma/schema.prisma
+pnpm run prisma:migrate    # prisma migrate dev: create and apply a migration
+pnpm run prisma:generate   # regenerate src/generated/prisma
+pnpm run prisma:seed       # optional
+
+# Deployment
+pnpm run prisma:deploy     # prisma migrate deploy (needs the Prisma CLI, i.e. a full install)
+NODE_PATH=./build node build/index.js
+
+# Resetting a disposable development database (never production)
+pnpm run prisma:reset      # prisma migrate reset
+pnpm run prisma:generate
+pnpm run prisma:seed
+```
+
+Migrations and seeds must target a database you chose explicitly; there is no
+fallback to a local default database.
+
+### Seed
+
+`prisma.config.ts` runs `ts-node prisma/seed.ts` as the seed command. The seed
+currently only validates `DATABASE_URL`; the template ships no seed data. If a
+seed needs the Client:
+
+1. run `pnpm run prisma:generate` first;
+2. import it with a relative path, `import { PrismaClient } from '../src/generated/prisma/client'`
+   (the `src/*` alias would require `NODE_PATH=.` in the seed command);
+3. create the Client with a `PrismaPg` adapter and call `$disconnect()` in a
+   `finally` block, returning a non-zero exit code on failure. The seed's
+   Client is independent of the application's shared instance.
+
+### Generated Client and imports
+
+`prisma/schema.prisma` uses the `prisma-client` generator with
+`moduleFormat = "cjs"`, so the project stays CommonJS with NodeNext module
+resolution. The Client is generated as TypeScript into
+`src/generated/prisma/` (ignored by Git, Prettier, ESLint and coverage) and
+compiled with the rest of `src/` by `pnpm run build`.
+
+| Context | Import | Resolves to |
+| --- | --- | --- |
+| Source, tests, `ts-node` | `src/generated/prisma/client` | `src/generated/prisma/client.ts` |
+| Compiled (`NODE_PATH=./build`) | `src/generated/prisma/client` | `build/src/generated/prisma/client.js` |
+
+Regenerate after every schema change (`pnpm run prisma:generate`). `pnpm start`
+runs `prisma:generate` before starting the TypeScript and nodemon watchers, but
+the watchers do not regenerate the Client when `prisma/schema.prisma` changes.
+
+The compiled build runs with production dependencies only
+(`pnpm install --prod --frozen-lockfile` plus `build/`): the Prisma CLI,
+`ts-node` and `src/` are not needed at runtime.
+
+### Runtime connection
+
+`PrismaService` still extends the generated `PrismaClient` and is registered as
+a singleton under `ContainerTokens.PRISMA`. When it is resolved,
+`PrismaConfig.getDatabaseConnectionOptions()` validates `DATABASE_URL` and
+builds a `PrismaPg` adapter:
+
+- `DATABASE_URL` must be non-empty after trimming, parse as a URL, use the
+  `postgresql:` or `postgres:` scheme and include a host (or a `host` query
+  parameter). Otherwise a `DatabaseConfigurationError` is thrown whose message
+  never contains the URL. pg itself would silently fall back to
+  `localhost:5432` for an empty URL and treat `not-a-url` as a host name.
+- Validation happens on resolve, not on import, registration or
+  `EnvironmentService` construction, so unit tests and builds do not need
+  `DATABASE_URL`.
+- Creating the Client opens no connection; the pool connects on the first
+  query.
+
+| Setting | Prisma 6 | Prisma 7 + `PrismaPg` (this template) |
+| --- | --- | --- |
+| Pool size | CPU count × 2 + 1, `connection_limit` URL parameter | `DATABASE_POOL_MAX`, default `10` |
+| Connect / pool wait timeout | `connect_timeout` (5 s) and `pool_timeout` (10 s) | `DATABASE_CONNECTION_TIMEOUT_MS`, default `10000`, covers both |
+| Timeout error | `P2024` | Plain `Error`: `Connection terminated due to connection timeout` or `timeout exceeded when trying to connect` |
+| Idle connections | engine default | pg default, closed after 10 s idle |
+| `?schema=` | applied by the engine | parsed by the template and passed as `PrismaPg`'s `schema` option |
+| Interactive transactions | `maxWait` 2000 ms, `timeout` 5000 ms | unchanged (`P2028` when exceeded) |
+
+pg's own connection timeout default is `0` (wait forever), which would block
+both the retry loop and shutdown on an unroutable host; the template therefore
+always sets a finite timeout.
+
+Prisma 6-only URL parameters (`connection_limit`, `pool_timeout`,
+`connect_timeout`, `socket_timeout`, `pgbouncer`, `statement_cache_size`,
+`channel_binding`, `sslaccept`, `sslidentity`, `sslpassword`) are not applied
+by pg. When present, `PrismaService` logs a warning that lists only their
+names. Parameters pg understands (for example `sslmode`, `sslrootcert`,
+`application_name`, `options`) are applied. `?schema=` is honoured by both the
+CLI and the runtime, so they target the same PostgreSQL schema.
+
+`sslmode` is applied by pg: `sslmode=require` against a server without TLS
+fails with `TlsConnectionError`. pg currently treats `prefer`, `require` and
+`verify-ca` as `verify-full` and prints a security warning that pg 9 will
+switch to libpq semantics; use `sslmode=verify-full` to keep today's behaviour
+explicitly. Never disable certificate verification globally to make a
+connection work.
+
+### Readiness, retries and errors
+
+`connect()` (run by the Prisma `onInitiate` hook) calls `$connect()` and then
+`SELECT 1` through `$queryRaw`. With driver adapters `$connect()` does not open
+a connection, so only a successful query counts as ready, and
+`Database connection established.` is logged only after it. Failures are
+classified by `error.meta.driverAdapterError.cause.kind`, not by Prisma error
+codes or message text (`$queryRaw` reports connection failures as `P2010`;
+model queries as `P1000`, `P1001`, `P1003`).
+
+| Classification | Errors |
+| --- | --- |
+| Fail fast (no retry) | `AuthenticationFailed`, `DatabaseDoesNotExist`, `DatabaseAccessDenied`, `TlsConnectionError`, `DatabaseConfigurationError`, a missing password (pg: `client password must be a string`) |
+| Retry | `DatabaseNotReachable`, `SocketTimeout`, `ConnectionClosed`, `TooManyConnections`, errors without a `kind` (such as the pg connection timeout), and any other `kind` |
+
+Retries keep the previous semantics: unlimited attempts, waiting
+`1000 ms × attempt` plus 0–500 ms jitter, capped at 30 s, with each attempt
+bounded by `DATABASE_CONNECTION_TIMEOUT_MS`. Log messages contain the
+classification and the driver message (host, port or user name), never the
+connection string or password.
+
+Startup currently keeps the existing hook contract: a failing `onInitiate`
+hook, including the Prisma connect, is logged and startup continues.
+Making the Prisma hook required and releasing the pool on shutdown is tracked
+in [#35](https://github.com/RougeLi/WebServiceTemplate/issues/35).
+
+### Connection ownership
+
+- Each application has one shared Client and pool (`ContainerTokens.PRISMA`,
+  singleton). Request scopes resolve the same instance; nothing is created per
+  request.
+- `$disconnect()` closes the adapter's pool, and calling it twice is safe. A
+  query after `$disconnect()` silently creates a new pool.
+- CLI commands, seeds and scripts create their own Client and must
+  `$disconnect()` it in `finally`; they never take over the application's
+  instance.
+- Tests can register a fake under `ContainerTokens.PRISMA` in an isolated
+  container; no database is needed.
+
+### Query logging
+
+Logging options are unchanged: query events in development or with
+`FORCE_PRISMA_QUERY_LOG=true` (`debug` normally, `info` when forced), `info` /
+`warn` / `error` events routed to the matching logger level, parameter
+formatting with `PRISMA_QUERY_ENABLE_JSON_PARSE`, `PRISMA_QUERY_DELIMITER` and
+truncation, and `errorFormat` (`pretty` in development, `minimal` elsewhere).
+With Prisma 7.10.1 and `PrismaPg`:
+
+- `query` events keep `timestamp`, `query`, `params` (JSON string), `duration`
+  and `target` (`ClientEngine`). `duration` is now fractional; the formatter
+  rounds it to whole milliseconds as before.
+- Transaction control statements (`BEGIN`, `COMMIT`, `ROLLBACK`) appear as
+  query events.
+- `error` events are emitted for failed queries. No `info` or `warn` events
+  were observed; the subscriptions are kept.
+
+### Consumer migration notes (Prisma 6 → 7)
+
+- Import the Client, the `Prisma` namespace, model types and error classes
+  (`Prisma.PrismaClientKnownRequestError`, ...) from
+  `src/generated/prisma/client` instead of `@prisma/client` or `.prisma/client`.
+  There is no compatibility shim for the old location.
+- `PrismaService`, `ContainerTokens.PRISMA`, `ContainerTokens.PRISMA_CONFIG`
+  and `IDBService.connect/disconnect` keep their names and injection. New:
+  `PrismaConfig.getDatabaseConnectionOptions()`, `databasePoolMax` and
+  `databaseConnectionTimeoutMs`. `CustomPrismaClient` now includes `$queryRaw`
+  (used for readiness); hand-written fakes typed with it need that member.
+- The Prisma Client constructor returns its own object, so
+  `instanceof PrismaService` / `instanceof PrismaClient` is `false`, as it
+  already was with Prisma 6.
+- Replace Prisma 6 URL parameters with `DATABASE_POOL_MAX` and
+  `DATABASE_CONNECTION_TIMEOUT_MS`, and handle the plain timeout `Error`
+  instead of `P2024`.
+- `package.json#prisma` was removed; the seed command lives in
+  `prisma.config.ts`. `build` now generates before compiling, `start`
+  generates first, and `prisma:seed` was added.
+- `model log` is mapped to the existing `"Log"` table with `@@map("Log")`;
+  the migration history is unchanged and `prisma migrate diff` against a
+  database built from it is empty.
 
 ---
 
@@ -350,11 +596,15 @@ Web Service Template adopts a modular architecture that separates core framework
 
 This project uses an `.env` file to configure environment-specific settings. Below are the main environment variables:
 
-| Variable Name | Description                                         | Default Value      |
-|---------------|-----------------------------------------------------|--------------------|
-| `APP_NAME`    | Application name for identification across services | WebServiceTemplate |
-| `APP_ENV`     | Application runtime environment                     | development        |
-| `PORT`        | Port number where the service runs                  | 3000               |
+| Variable Name                    | Description                                                         | Default Value      |
+|----------------------------------|---------------------------------------------------------------------|--------------------|
+| `APP_NAME`                       | Application name for identification across services                 | WebServiceTemplate |
+| `APP_ENV`                        | Application runtime environment                                     | development        |
+| `PORT`                           | Port number where the service runs                                  | 3000               |
+| `DATABASE_URL`                   | PostgreSQL URL for the Prisma CLI and runtime (`postgresql://...`)  | none (required to use the database) |
+| `DATABASE_POOL_MAX`              | Maximum pooled connections (positive integer)                       | 10                 |
+| `DATABASE_CONNECTION_TIMEOUT_MS` | Connection / pool wait timeout in ms (positive integer)             | 10000              |
+| `FORCE_PRISMA_QUERY_LOG`         | Log Prisma queries at `info` outside development                    | false              |
 
 For complete configuration, please refer to the `.env.example` file.
 
@@ -509,13 +759,24 @@ compositions is outside this contract.
 
 ### Building the Application
 
+`build` runs `prisma generate` and then `tsc`, so `build/` contains the
+compiled Prisma Client (`build/src/generated/prisma/client.js`).
+
 ```bash
   pnpm run build
 ```
 
+Run the compiled service with production dependencies only:
+
+```bash
+  pnpm install --prod --frozen-lockfile
+  NODE_PATH=./build node build/index.js
+```
+
 ### Database Migration
 
-To deploy database changes in a production environment:
+To deploy database changes in a production environment (requires the Prisma
+CLI from a full install and an explicitly set `DATABASE_URL`):
 
 ```bash
   pnpm run prisma:deploy
@@ -550,8 +811,12 @@ pnpm run prisma:migrate
 # Deploy migrations to production environment
 pnpm run prisma:deploy
 
-# Reset database (development environment)
+# Reset a disposable development database (never production)
 pnpm run prisma:reset
+
+# Regenerate the Client and seed explicitly afterwards
+pnpm run prisma:generate
+pnpm run prisma:seed
 
 ```
 
