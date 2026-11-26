@@ -10,7 +10,7 @@
     "update:dependencies": "pnpm update --latest",
     "build": "tsc -p tsconfig.json && pnpm run prisma:generate",
     "build:watch": "tsc -p tsconfig.json --watch",
-    "run:watch": "cross-env NODE_PATH=./build nodemon -r source-map-support/register --watch ./build build/index.js",
+    "run:watch": "node -e \"require('node:fs').mkdirSync('build', { recursive: true })\" && cross-env NODE_PATH=./build nodemon --watch ./build --exec \"node -r source-map-support/register build/index.js\"",
     "start": "concurrently -n \"TS,Server\" -c \"yellow.bold,green.bold\" \"pnpm run build:watch\" \"pnpm run run:watch\"",
     "prettier:check": "prettier --check \"**/*.{ts,js}\"",
     "prettier:fix": "prettier --write \"**/*.{ts,js}\"",
