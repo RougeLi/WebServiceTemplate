@@ -298,7 +298,7 @@ describe('DbUtils', () => {
         connectionString: url,
         schema: undefined,
         ignoredParameters: [],
-        setsSearchPath: false,
+        optionsSearchPath: undefined,
       });
     });
 
@@ -324,17 +324,38 @@ describe('DbUtils', () => {
       ).toBeUndefined();
     });
 
-    it('should report whether the pg `options` parameter sets search_path', () => {
+    it('should use the last schema parameter, as pg does for repeated parameters', () => {
+      expect(
+        parseDatabaseUrl('postgresql://app@db/app_db?schema=a&schema=b').schema,
+      ).toBe('b');
+    });
+
+    it.each([
+      ['-c search_path=tenant_a', 'tenant_a'],
+      ['-csearch_path=tenant_a', 'tenant_a'],
+      ['--search_path=tenant_a', 'tenant_a'],
+      ['-c search_path=Tenant_A,public', 'tenant_a'],
+      ['-c search_path="TenantA",public', 'TenantA'],
+      ['-c search_path="Tenant\\ A"', 'Tenant A'],
+      ['-c search_path=a -c statement_timeout=5 -c search_path=b', 'b'],
+      ['-c statement_timeout=5000', undefined],
+    ])(
+      'should read the search_path that pg options %p sets',
+      (options, expected) => {
+        expect(
+          parseDatabaseUrl(
+            `postgresql://app@db/app_db?options=${encodeURIComponent(options)}`,
+          ).optionsSearchPath,
+        ).toBe(expected);
+      },
+    );
+
+    it('should read the last options parameter, which is the one pg sends', () => {
       expect(
         parseDatabaseUrl(
-          'postgresql://app@db/app_db?options=-c%20search_path%3Dtenant_a',
-        ).setsSearchPath,
-      ).toBe(true);
-      expect(
-        parseDatabaseUrl(
-          'postgresql://app@db/app_db?options=-c%20statement_timeout%3D5000',
-        ).setsSearchPath,
-      ).toBe(false);
+          `postgresql://app@db/app_db?options=${encodeURIComponent('-c search_path=a')}&options=${encodeURIComponent('-c statement_timeout=5')}`,
+        ).optionsSearchPath,
+      ).toBeUndefined();
     });
 
     describe('certificate parameters', () => {
@@ -355,6 +376,31 @@ describe('DbUtils', () => {
         expect(() =>
           parseDatabaseUrl(
             `postgresql://app@db/app_db?sslmode=verify-full&sslrootcert=${encodeURIComponent(certificate)}`,
+          ),
+        ).not.toThrow();
+      });
+
+      it('should check the last certificate parameter, which is the one pg reads', () => {
+        expect(() =>
+          parseDatabaseUrl(
+            `postgresql://app@db/app_db?sslrootcert=${encodeURIComponent(certificate)}&sslrootcert=${encodeURIComponent(path.join(directory, 'missing.pem'))}`,
+          ),
+        ).toThrow(
+          'DATABASE_URL sslrootcert does not point to a readable file.',
+        );
+      });
+
+      it('should check the path pg reads when it re-encodes a URL with spaces', () => {
+        // pg-connection-string re-encodes the whole URL when it contains a
+        // space, so %2F in the path is read literally and the file is missing.
+        expect(() =>
+          parseDatabaseUrl(
+            `postgresql://app@db/app_db?application_name=a b&sslrootcert=${encodeURIComponent(certificate)}`,
+          ),
+        ).toThrow(DatabaseConfigurationError);
+        expect(() =>
+          parseDatabaseUrl(
+            `postgresql://app@db/app_db?application_name=a b&sslrootcert=${certificate}`,
           ),
         ).not.toThrow();
       });

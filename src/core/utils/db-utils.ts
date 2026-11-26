@@ -25,6 +25,47 @@ const SUPPORTED_DATABASE_URL_PROTOCOLS = new Set(['postgres:', 'postgresql:']);
 const CERTIFICATE_URL_PARAMETERS = ['sslrootcert', 'sslcert', 'sslkey'];
 
 /**
+ * pg-connection-string re-encodes the whole URL with `encodeURI` when it
+ * contains a space or a malformed percent escape. The template parses the URL
+ * the same way so its checks see the values pg will use.
+ */
+const PG_REENCODE_TRIGGER = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i;
+
+function toPgParseInput(connectionString: string): string {
+  return PG_REENCODE_TRIGGER.test(connectionString)
+    ? encodeURI(connectionString).replaceAll(/%25(\d\d)/g, '%$1')
+    : connectionString;
+}
+
+/** pg keeps the last value of a repeated query parameter. */
+function getLastSearchParam(url: URL, name: string): string | undefined {
+  return url.searchParams.getAll(name).at(-1);
+}
+
+/**
+ * Returns the first schema of a `search_path` set in a pg `options` string
+ * (`-c search_path=...` or `--search_path=...`; the last setting wins).
+ * Quoted identifiers keep their case; unquoted ones are lower-cased as
+ * PostgreSQL does.
+ */
+function getOptionsSearchPath(options: string | undefined): string | undefined {
+  if (!options) {
+    return undefined;
+  }
+  const settings = [
+    ...options.matchAll(/(?:^|\s)(?:-c\s*|--)search_path=((?:\\.|[^\s\\])*)/gi),
+  ];
+  const value = settings.at(-1)?.[1].replaceAll(/\\(.)/g, '$1');
+  const first = value?.split(',')[0].trim();
+  if (!first) {
+    return undefined;
+  }
+  return /^".*"$/.test(first)
+    ? first.slice(1, -1).replaceAll('""', '"')
+    : first.toLowerCase();
+}
+
+/**
  * Prisma 6 connection URL parameters that the pg driver used by
  * `@prisma/adapter-pg` does not apply. Pool size and timeouts are configured
  * through DATABASE_POOL_MAX and DATABASE_CONNECTION_TIMEOUT_MS instead.
@@ -95,7 +136,7 @@ export function parseDatabaseUrl(
 
   let url: URL;
   try {
-    url = new URL(connectionString);
+    url = new URL(toPgParseInput(connectionString));
   } catch {
     throw new DatabaseConfigurationError('DATABASE_URL is not a valid URL.');
   }
@@ -113,7 +154,7 @@ export function parseDatabaseUrl(
   // pg reads these files while connecting and would fail every retry with
   // ENOENT, an error without a driver adapter kind; reject them up front.
   for (const name of CERTIFICATE_URL_PARAMETERS) {
-    const path = url.searchParams.get(name);
+    const path = getLastSearchParam(url, name);
     if (path && !isReadableFile(path)) {
       throw new DatabaseConfigurationError(
         `DATABASE_URL ${name} does not point to a readable file.`,
@@ -121,7 +162,7 @@ export function parseDatabaseUrl(
     }
   }
 
-  const schema = url.searchParams.get('schema')?.trim() || undefined;
+  const schema = getLastSearchParam(url, 'schema')?.trim() || undefined;
   const ignoredParameters = IGNORED_PRISMA6_URL_PARAMETERS.filter((name) =>
     url.searchParams.has(name),
   );
@@ -130,7 +171,7 @@ export function parseDatabaseUrl(
     connectionString,
     schema,
     ignoredParameters,
-    setsSearchPath: /search_path/i.test(url.searchParams.get('options') ?? ''),
+    optionsSearchPath: getOptionsSearchPath(getLastSearchParam(url, 'options')),
   };
 }
 

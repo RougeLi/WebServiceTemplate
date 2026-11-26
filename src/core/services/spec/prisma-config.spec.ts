@@ -266,12 +266,21 @@ describe('PrismaConfig', () => {
       expect(options.warnings[0]).not.toContain('secret');
     });
 
-    it('should not warn about raw SQL when the URL options set the search_path', () => {
+    it('should not warn about raw SQL when the URL options set the same search_path', () => {
       const options = prismaConfig.getDatabaseConnectionOptions(
         'postgresql://app@db/app_db?schema=tenant_a&options=-c%20search_path%3Dtenant_a',
       );
       expect(options.adapterOptions).toEqual({ schema: 'tenant_a' });
       expect(options.warnings).toEqual([]);
+    });
+
+    it('should still warn when the URL options set a different search_path', () => {
+      const options = prismaConfig.getDatabaseConnectionOptions(
+        'postgresql://app@db/app_db?schema=tenant_a&options=-c%20search_path%3Dpublic',
+      );
+      expect(options.warnings).toEqual([
+        expect.stringContaining('options=-c%20search_path%3D<schema>'),
+      ]);
     });
 
     it('should warn about ignored Prisma 6 parameters without the URL', () => {

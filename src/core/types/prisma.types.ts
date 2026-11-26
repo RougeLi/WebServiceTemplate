@@ -57,8 +57,11 @@ export type ParsedDatabaseUrl = {
   schema?: string;
   /** Prisma 6 URL parameters that the pg driver does not apply. */
   ignoredParameters: string[];
-  /** Whether the URL's pg `options` parameter sets `search_path`. */
-  setsSearchPath: boolean;
+  /**
+   * First schema of the `search_path` that the URL's pg `options` parameter
+   * sets (unquoted), if any.
+   */
+  optionsSearchPath?: string;
 };
 
 /**

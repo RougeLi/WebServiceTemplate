@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { asClass, asFunction, asValue, AwilixContainer } from 'awilix';
+import { asClass, asValue, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
 import { getEnvironmentServiceMock } from 'test-utils/mocks';
 import {
@@ -378,19 +378,15 @@ describe('PrismaService', () => {
       // Same registration as globalDIConfigs, then a test override.
       container.register(ContainerTokens.PRISMA, asValue(fake));
 
+      // CLASSIC injection: the constructor parameter name is the token.
       class Consumer {
         constructor(readonly prisma: IDBService) {}
       }
-      container.register(
-        'consumer',
-        asFunction(
-          () =>
-            new Consumer(container.resolve<IDBService>(ContainerTokens.PRISMA)),
-        ).scoped(),
-      );
+      container.register('consumer', asClass(Consumer).scoped());
       const scope = container.createScope();
 
       expect(scope.resolve<Consumer>('consumer').prisma).toBe(fake);
+      expect(scope.resolve(ContainerTokens.PRISMA)).toBe(fake);
       expect(PrismaPg).not.toHaveBeenCalled();
     });
   });

@@ -103,7 +103,7 @@ export default class PrismaConfig {
   getDatabaseConnectionOptions(
     databaseUrl: string | undefined = process.env.DATABASE_URL,
   ): DatabaseConnectionOptions {
-    const { connectionString, schema, ignoredParameters, setsSearchPath } =
+    const { connectionString, schema, ignoredParameters, optionsSearchPath } =
       parseDatabaseUrl(databaseUrl);
     const warnings: string[] = [];
 
@@ -113,10 +113,10 @@ export default class PrismaConfig {
       connectionTimeoutMillis: this.databaseConnectionTimeoutMs,
     };
 
-    if (schema && !setsSearchPath) {
+    if (schema && optionsSearchPath !== schema) {
       warnings.push(
         'DATABASE_URL `schema` applies to model queries only; raw SQL ($queryRaw, $executeRaw) uses the connection search_path. ' +
-          'Schema-qualify raw SQL, or add `options=-c search_path=<schema>` to DATABASE_URL when connecting directly to PostgreSQL.',
+          'Schema-qualify raw SQL, or add the URL-encoded `options=-c%20search_path%3D<schema>` to DATABASE_URL when connecting directly to PostgreSQL.',
       );
     }
 

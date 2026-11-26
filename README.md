@@ -508,7 +508,7 @@ builds a `PrismaPg` adapter:
 | Timeout error | `P2024` | Plain `Error`: `Connection terminated due to connection timeout` or `timeout exceeded when trying to connect` |
 | Idle connections | engine default | pg default, closed after 10 s idle |
 | `?schema=` | applied by the engine to every query (`SET search_path`) | parsed by the template and passed as `PrismaPg`'s `schema` option: model queries only; raw SQL keeps the connection `search_path` |
-| TLS without SSL parameters | `sslmode=prefer` (TLS when the server offers it) | no TLS unless `sslmode`, `ssl=true`, a certificate parameter or `PGSSLMODE` is set |
+| TLS without SSL parameters | `sslmode=prefer` (TLS when the server offers it) | no TLS unless an SSL setting such as `sslmode`, `ssl`, a certificate parameter or `PGSSLMODE` is present |
 | Interactive transactions | `maxWait` 2000 ms, `timeout` 5000 ms | unchanged (`P2028` when exceeded) |
 
 pg's own connection timeout default is `0` (wait forever), which would block
@@ -527,7 +527,8 @@ Client's model API target the same PostgreSQL schema. Raw SQL (`$queryRaw`,
 `$executeRaw`) is different from Prisma 6: it runs with the connection's
 `search_path`, so unqualified table names resolve in `public` (or the role's
 default). When `?schema=` is set, `PrismaService` logs a warning unless the
-URL's `options` parameter sets the search path. Either schema-qualify raw SQL
+URL's `options` parameter sets a search path that starts with that schema.
+Either schema-qualify raw SQL
 or, when connecting directly to PostgreSQL, add
 `options=-c%20search_path%3D<schema>` to `DATABASE_URL`. The template does not
 add that startup parameter itself because connection poolers such as PgBouncer
@@ -537,11 +538,14 @@ reject unknown startup parameters by default.
 fails with `TlsConnectionError`. pg currently treats `prefer`, `require` and
 `verify-ca` as `verify-full` and prints a security warning that pg 9 will
 switch to libpq semantics; use `sslmode=verify-full` to keep today's behaviour
-explicitly. Without any SSL setting (`sslmode`, `ssl=true`, `sslrootcert`,
-`sslcert`, `sslkey` or the `PGSSLMODE` environment variable) pg does not use
-TLS, whereas Prisma 6 defaulted to `prefer`; set `sslmode` (with
-`sslrootcert` for a private CA) when the server requires TLS. Any certificate
-parameter turns on verified TLS. Certificate parameters also changed meaning:
+explicitly. Without any SSL setting (for example `sslmode`, `ssl`,
+`sslnegotiation=direct`, a certificate parameter or the `PGSSLMODE`
+environment variable) pg does not use TLS, whereas Prisma 6 defaulted to
+`prefer`; set `sslmode` (with `sslrootcert` for a private CA) when the server
+requires TLS. A certificate parameter without `sslmode` turns on TLS with
+certificate verification, while `sslmode=disable` still disables TLS and
+`sslmode=no-verify` disables verification. Certificate parameters also
+changed meaning:
 Prisma 6's `sslcert` was the server (CA) certificate, while pg reads `sslcert`
 as the client certificate and `sslrootcert` as the CA, and pg resolves the
 paths relative to the working directory instead of `./prisma`. Never disable
