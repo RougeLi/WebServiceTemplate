@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { checkDatabaseCertificateFiles } from 'src/core/config/postgres-options';
+import { checkDatabaseTlsOptions } from 'src/core/config/postgres-options';
 import { LoggerService } from 'src/core/services';
 import {
   CustomPrismaClient,
@@ -320,9 +320,17 @@ describe('DbUtils', () => {
       expect(
         parseDatabaseUrl('postgresql://app@db/app_db?schema=tenant_a').schema,
       ).toBe('tenant_a');
+      expect(() =>
+        parseDatabaseUrl('postgresql://app@db/app_db?schema='),
+      ).toThrow(DatabaseConfigurationError);
       expect(
-        parseDatabaseUrl('postgresql://app@db/app_db?schema=').schema,
-      ).toBeUndefined();
+        parseDatabaseUrl('postgresql://app@db/app_db?schema=tenant%20').schema,
+      ).toBe('tenant ');
+      expect(
+        parseDatabaseUrl(
+          'postgresql://app@db/app_db?schema=a%2Fb&application_name=with space',
+        ).schema,
+      ).toBe('a/b');
     });
 
     it('should use the last schema parameter, as pg does for repeated parameters', () => {
@@ -392,9 +400,36 @@ describe('DbUtils', () => {
         fs.rmSync(directory, { recursive: true, force: true });
       });
 
+      it('should reject deterministic pg TLS configuration errors before connecting', () => {
+        const target = 'postgresql://app@db/app_db?';
+        expect(() =>
+          checkDatabaseTlsOptions(
+            target + 'sslmode=verify-ca&uselibpqcompat=true',
+          ),
+        ).toThrow(/requires sslrootcert/);
+        expect(() =>
+          checkDatabaseTlsOptions(
+            target +
+              'sslmode=verify-ca&uselibpqcompat=true&sslrootcert=' +
+              encodeURIComponent(certificate),
+          ),
+        ).not.toThrow();
+        expect(() =>
+          checkDatabaseTlsOptions(target + 'sslmode=verify-ca'),
+        ).not.toThrow();
+        expect(() =>
+          checkDatabaseTlsOptions(
+            target + 'sslmode=disable&sslnegotiation=direct',
+          ),
+        ).toThrow(/requires TLS/);
+        expect(() =>
+          checkDatabaseTlsOptions(target + 'sslnegotiation=invalid'),
+        ).toThrow(/postgres or direct/);
+      });
+
       it('should accept readable certificate files', () => {
         expect(() =>
-          checkDatabaseCertificateFiles(
+          checkDatabaseTlsOptions(
             `postgresql://app@db/app_db?sslmode=verify-full&sslrootcert=${encodeURIComponent(certificate)}`,
           ),
         ).not.toThrow();
@@ -402,7 +437,7 @@ describe('DbUtils', () => {
 
       it('should check the last certificate parameter, which is the one pg reads', () => {
         expect(() =>
-          checkDatabaseCertificateFiles(
+          checkDatabaseTlsOptions(
             `postgresql://app@db/app_db?sslrootcert=${encodeURIComponent(certificate)}&sslrootcert=${encodeURIComponent(path.join(directory, 'missing.pem'))}`,
           ),
         ).toThrow(
@@ -414,12 +449,12 @@ describe('DbUtils', () => {
         // pg-connection-string re-encodes the whole URL when it contains a
         // space, so %2F in the path is read literally and the file is missing.
         expect(() =>
-          checkDatabaseCertificateFiles(
+          checkDatabaseTlsOptions(
             `postgresql://app@db/app_db?application_name=a b&sslrootcert=${encodeURIComponent(certificate)}`,
           ),
         ).toThrow(DatabaseConfigurationError);
         expect(() =>
-          checkDatabaseCertificateFiles(
+          checkDatabaseTlsOptions(
             `postgresql://app@db/app_db?application_name=a b&sslrootcert=${certificate}`,
           ),
         ).not.toThrow();
@@ -432,7 +467,7 @@ describe('DbUtils', () => {
           for (const value of [missing, directory]) {
             let thrown: unknown;
             try {
-              checkDatabaseCertificateFiles(
+              checkDatabaseTlsOptions(
                 `postgresql://app@db/app_db?${name}=${encodeURIComponent(value)}`,
               );
             } catch (error) {

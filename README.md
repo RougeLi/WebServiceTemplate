@@ -265,7 +265,7 @@ Client's model API target the same PostgreSQL schema. Raw SQL (`$queryRaw`,
 `search_path`, so unqualified table names resolve in `public` (or the role's
 default). When `?schema=` is set, `PrismaService` logs a warning unless the
 URL's `options` parameter sets a search path that starts with that schema.
-When migrating SQL that used Prisma 6's URL schema, qualify the table explicitly.
+The schema parameter preserves the identifier's case and whitespace. An explicit empty schema is invalid. When migrating SQL that used Prisma 6's URL schema, qualify the table explicitly.
 For a database URL with `?schema=tenant`, rewrite the query as follows.
 
 ```sql
@@ -281,7 +281,7 @@ The template leaves the PostgreSQL search path and startup options under the con
 fails with `TlsConnectionError`. pg currently treats `prefer`, `require` and
 `verify-ca` as `verify-full` and prints a security warning that pg 9 will
 switch to libpq semantics; use `sslmode=verify-full` to keep today's behaviour
-explicitly. Without any SSL setting (for example `sslmode`, `ssl`,
+explicitly. With `uselibpqcompat=true`, `sslmode=verify-ca` requires a readable `sslrootcert`. Without any SSL setting (for example `sslmode`, `ssl`,
 `sslnegotiation=direct`, a certificate parameter or the `PGSSLMODE`
 environment variable) pg does not use TLS, whereas Prisma 6 defaulted to
 `prefer`; set `sslmode` (with `sslrootcert` for a private CA) when the server
