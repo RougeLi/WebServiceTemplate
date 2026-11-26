@@ -12,10 +12,11 @@ type GlobalContainerConfig = {
    */
   required?: boolean;
   /**
-   * Releases the instance when the container is disposed (for example by
-   * Fastify close with `disposeOnClose`). Registered as the resolver's Awilix
-   * `.disposer()`, so it only runs for instances that were resolved, and only
-   * for singleton or scoped registrations.
+   * Releases the instance; registered as the resolver's Awilix `.disposer()`.
+   * It runs only for instances that were resolved: a singleton when the root
+   * container is disposed (Fastify close with `disposeOnClose`), a scoped
+   * instance when the scope that resolved it is disposed (per request with
+   * `disposeOnResponse`). Transient registrations are never disposed.
    */
   onDispose?(instance: object): unknown;
 };

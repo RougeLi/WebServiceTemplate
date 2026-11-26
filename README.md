@@ -592,11 +592,13 @@ Two opt-in fields of `GlobalContainerConfig` implement this:
   error (in the order the failures occur) is rethrown. Hooks without the flag
   keep the previous contract: the failure is logged and initialization
   continues. Only the Prisma hook is marked required.
-- `onDispose(instance)` becomes the registration's Awilix `.disposer()`.
-  `container.dispose()` (Fastify close with `disposeOnClose`) calls it for
-  singleton or scoped instances that were resolved; request-scope disposal does
-  not touch root singletons, and an instance that was never resolved is never
-  created or disposed. The Prisma registration's disposer calls
+- `onDispose(instance)` becomes the registration's Awilix `.disposer()` and
+  runs only for instances that were resolved. A singleton is released when the
+  root container is disposed (Fastify close with `disposeOnClose`); a scoped
+  instance is released when the scope that resolved it is disposed (per request
+  with `disposeOnResponse`); transient instances are never disposed. Request
+  scope disposal does not touch root singletons, and an instance that was
+  never resolved is never created or disposed. The Prisma registration's disposer calls
   `PrismaService.disconnect()` and is the only owner of the shared Client and
   pool; `Application.stop()` does not dispose the container itself.
 
@@ -666,6 +668,18 @@ With Prisma 7.10.1 and `PrismaPg`:
 - `package.json#prisma` was removed; the seed command lives in
   `prisma.config.ts`. `build` now generates before compiling, `start`
   generates first, and `prisma:seed` was added.
+- Startup now stops on database errors that cannot be fixed by retrying:
+  bad credentials, a missing or invalid `DATABASE_URL`, a missing database,
+  denied access or a TLS / certificate problem make `Application.initialize()`
+  reject, and `index.ts` releases what was created and exits with code 1
+  before HTTP starts. With Prisma 6, an authentication error was logged and
+  HTTP still started, and the other cases retried forever. Make sure
+  deployment health checks and restart policies expect a non-zero exit.
+- The Prisma Client and its pool are released by the `ContainerTokens.PRISMA`
+  singleton's disposer when Fastify closes (`app.stop()`, SIGINT/SIGTERM).
+- `GlobalContainerConfig` has two new opt-in fields, `required` and
+  `onDispose`, and `makeContainerRegistration` accepts an optional fourth
+  `disposer` argument. Existing entries and calls behave as before.
 - `model log` is mapped to the existing `"Log"` table with `@@map("Log")`;
   the migration history is unchanged and `prisma migrate diff` against a
   database built from it is empty.

@@ -131,12 +131,15 @@ function globalConfig(
   ];
 }
 
+const createdApps: Array<Awaited<ReturnType<typeof setupApp>>> = [];
+
 async function createApp(
   entries: GlobalContainerConfigEntries,
   modules: IModule[] = [new DatabaseRouteModule()],
 ) {
   const app = await setupApp(entries, modules);
   app.registerStartupModule(new WebServerModule());
+  createdApps.push(app);
   return app;
 }
 
@@ -149,7 +152,12 @@ describe('Application lifecycle with a required, disposable global service', () 
     jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Close every server even when an assertion failed before app.stop();
+    // stopping twice is a no-op for the already-closed web server.
+    for (const app of createdApps.splice(0)) {
+      await app.stop();
+    }
     jest.restoreAllMocks();
     clearRouteTokens();
   });
@@ -203,18 +211,16 @@ describe('Application lifecycle with a required, disposable global service', () 
         [slowHook],
       ),
     );
-    const start = jest.spyOn(app, 'start');
-
     await expect(app.initialize()).rejects.toBe(original);
     expect(slowHookFinished).toBe(true);
-    expect(start).not.toHaveBeenCalled();
+    // Nothing listens: only start() would open the port.
+    await expect(fetch(`http://127.0.0.1:${port}/db`)).rejects.toThrow();
 
     // The composition root (index.ts) calls stop() after a startup failure.
     await app.stop();
 
     expect(FakeDatabase.instances).toHaveLength(1);
     expect(FakeDatabase.instances[0].disposed).toBe(1);
-    await expect(fetch(`http://127.0.0.1:${port}/db`)).rejects.toThrow();
   });
 
   it('keeps logging and continuing when a hook that is not required fails', async () => {

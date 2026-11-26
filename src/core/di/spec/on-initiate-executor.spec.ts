@@ -133,6 +133,41 @@ describe('executeOnInitiateHooks', () => {
       expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
     });
 
+    it.each([
+      ['undefined', undefined],
+      ['null', null],
+      ['a string', 'plain failure'],
+    ])(
+      'should still wait for every hook when a hook rejects with %s',
+      async (_label, value) => {
+        let slowHookFinished = false;
+        const slowHook = entry(async () => {
+          await delay(20);
+          slowHookFinished = true;
+        });
+
+        await expect(
+          executeOnInitiateHooks(container, [
+            entry(() => Promise.reject(value)),
+            slowHook,
+          ]),
+        ).resolves.toBeUndefined();
+        expect(slowHookFinished).toBe(true);
+
+        slowHookFinished = false;
+        await expect(
+          executeOnInitiateHooks(container, [
+            entry(() => Promise.reject(value), true),
+            slowHook,
+          ]),
+        ).rejects.toBe(value);
+        expect(slowHookFinished).toBe(true);
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining(`Error: ${String(value)}`),
+        );
+      },
+    );
+
     it('should skip entries without an onInitiate hook', async () => {
       await expect(
         executeOnInitiateHooks(container, [

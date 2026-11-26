@@ -30,10 +30,14 @@ async function executeOnInitiateHooks(
       try {
         await onInitiate(container);
       } catch (e) {
-        const error = e as Error;
+        // Hooks may reject with any value (even undefined); logging must not
+        // throw, or the remaining hooks would no longer be awaited.
+        const details =
+          e instanceof Error
+            ? `${e.message}\n        ${e.stack ?? ''}`
+            : String(e);
         console.error(`Error occurred while executing ${required ? 'required ' : ''}onInitiate hook.
-        Error: ${error.message}
-        ${error.stack as string}`);
+        Error: ${details}`);
         if (required) {
           requiredErrors.push(e);
         }
@@ -42,6 +46,7 @@ async function executeOnInitiateHooks(
   );
 
   if (requiredErrors.length > 0) {
+    // Rethrow the original value unchanged, whatever its type.
     throw requiredErrors[0];
   }
 }
