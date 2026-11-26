@@ -236,7 +236,7 @@ builds a `PrismaPg` adapter:
 - Validation happens on resolve, not on import, registration or
   `EnvironmentService` construction, so unit tests and builds do not need
   `DATABASE_URL`.
-- At `connect()`, the service checks that any `sslrootcert`, `sslcert` or `sslkey` refers to a readable file before attempting the readiness query. Creating the Client opens no connection and reads no certificate files.
+- At `connect()`, the service checks that any `sslrootcert`, `sslcert` or `sslkey` refers to a readable file before attempting the readiness query. When a TLS client key or certificate is supplied, Node validates the local PEM material before the driver opens a socket. Creating the Client opens no connection and reads no certificate files.
 
 | Setting | Prisma 6 | Prisma 7 + `PrismaPg` (this template) |
 | --- | --- | --- |

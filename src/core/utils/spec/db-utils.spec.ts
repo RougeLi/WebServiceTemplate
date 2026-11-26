@@ -427,6 +427,18 @@ describe('DbUtils', () => {
         ).toThrow(/postgres or direct/);
       });
 
+      it('should validate the client key before pg opens a TLS socket', () => {
+        const url =
+          'postgresql://app@db/app_db?sslkey=' +
+          encodeURIComponent(certificate);
+        expect(() => checkDatabaseTlsOptions(url)).toThrow(
+          DatabaseConfigurationError,
+        );
+        expect(() =>
+          checkDatabaseTlsOptions(url + '&sslmode=disable'),
+        ).not.toThrow();
+      });
+
       it('should accept readable certificate files', () => {
         expect(() =>
           checkDatabaseTlsOptions(
