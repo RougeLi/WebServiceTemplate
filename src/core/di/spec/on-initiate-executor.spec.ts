@@ -137,6 +137,15 @@ describe('executeOnInitiateHooks', () => {
       ['undefined', undefined],
       ['null', null],
       ['a string', 'plain failure'],
+      ['an object without a prototype', Object.create(null)],
+      [
+        'an object whose toString throws',
+        {
+          toString() {
+            throw new Error('boom');
+          },
+        },
+      ],
     ])(
       'should still wait for every hook when a hook rejects with %s',
       async (_label, value) => {
@@ -163,7 +172,7 @@ describe('executeOnInitiateHooks', () => {
         ).rejects.toBe(value);
         expect(slowHookFinished).toBe(true);
         expect(consoleErrorSpy).toHaveBeenCalledWith(
-          expect.stringContaining(`Error: ${String(value)}`),
+          expect.stringContaining('Error occurred while executing'),
         );
       },
     );

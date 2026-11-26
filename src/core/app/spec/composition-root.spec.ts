@@ -8,33 +8,55 @@ type FakeApp = {
   initialize: jest.Mock;
   start: jest.Mock;
   stop: jest.Mock;
+  stopSettled: boolean;
 };
 
-function fakeApp(overrides: Partial<FakeApp> = {}): FakeApp {
-  return {
+/**
+ * stop() settles only after a timer, so a test can tell whether index.ts
+ * waited for cleanup before exiting.
+ */
+function fakeApp(
+  overrides: Partial<Omit<FakeApp, 'stopSettled' | 'stop'>> = {},
+  stopError?: Error,
+): FakeApp {
+  const app: FakeApp = {
     registerStartupModule: jest.fn(),
     initialize: jest.fn().mockResolvedValue(undefined),
     start: jest.fn().mockResolvedValue(undefined),
-    stop: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      app.stopSettled = true;
+      if (stopError) {
+        throw stopError;
+      }
+    }),
+    stopSettled: false,
     ...overrides,
   };
+  return app;
 }
 
 async function waitFor(condition: () => boolean): Promise<void> {
   for (let i = 0; i < 200 && !condition(); i++) {
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
   expect(condition()).toBe(true);
 }
 
-async function runIndex(setupApp: jest.Mock) {
+async function runIndex(setupApp: jest.Mock, app?: FakeApp) {
   const closeWithGrace = jest.fn();
   const initializeAll = jest.fn().mockResolvedValue(undefined);
+  // Whether cleanup had finished when process.exit() was called.
+  const stopSettledAtExit: boolean[] = [];
   // process.exit is mocked, so the script keeps running after exit(); in a
   // real process exit() ends it.
-  const exit = jest
-    .spyOn(process, 'exit')
-    .mockImplementation((() => undefined) as never);
+  const exit = jest.spyOn(process, 'exit').mockImplementation(((
+    code?: number,
+  ) => {
+    if (code !== 0) {
+      stopSettledAtExit.push(app?.stopSettled ?? false);
+    }
+  }) as never);
   const consoleError = jest.spyOn(console, 'error').mockImplementation();
   jest.spyOn(console, 'log').mockImplementation();
 
@@ -57,7 +79,13 @@ async function runIndex(setupApp: jest.Mock) {
     () => exit.mock.calls.length > 0 || closeWithGrace.mock.calls.length > 0,
   );
 
-  return { closeWithGrace, exit, consoleError, initializeAll };
+  return {
+    closeWithGrace,
+    exit,
+    consoleError,
+    initializeAll,
+    stopSettledAtExit,
+  };
 }
 
 describe('index.ts composition root', () => {
@@ -69,6 +97,7 @@ describe('index.ts composition root', () => {
     const app = fakeApp();
     const { closeWithGrace, exit } = await runIndex(
       jest.fn().mockResolvedValue(app),
+      app,
     );
 
     expect(app.initialize).toHaveBeenCalledTimes(1);
@@ -87,8 +116,9 @@ describe('index.ts composition root', () => {
     async (step) => {
       const original = new Error(`${step} failed`);
       const app = fakeApp({ [step]: jest.fn().mockRejectedValue(original) });
-      const { exit, consoleError } = await runIndex(
+      const { exit, consoleError, stopSettledAtExit } = await runIndex(
         jest.fn().mockResolvedValue(app),
+        app,
       );
 
       expect(consoleError).toHaveBeenNthCalledWith(
@@ -98,9 +128,8 @@ describe('index.ts composition root', () => {
       );
       expect(app.stop).toHaveBeenCalledTimes(1);
       expect(exit).toHaveBeenCalledWith(1);
-      expect(exit.mock.invocationCallOrder[0]).toBeGreaterThan(
-        app.stop.mock.invocationCallOrder[0],
-      );
+      // Cleanup finished before the process exits.
+      expect(stopSettledAtExit).toEqual([true]);
       if (step === 'initialize') {
         expect(app.start).not.toHaveBeenCalled();
       }
@@ -110,12 +139,13 @@ describe('index.ts composition root', () => {
   it('logs a cleanup failure separately without replacing the original error', async () => {
     const original = new Error('initialize failed');
     const cleanupError = new Error('stop failed');
-    const app = fakeApp({
-      initialize: jest.fn().mockRejectedValue(original),
-      stop: jest.fn().mockRejectedValue(cleanupError),
-    });
-    const { exit, consoleError } = await runIndex(
+    const app = fakeApp(
+      { initialize: jest.fn().mockRejectedValue(original) },
+      cleanupError,
+    );
+    const { exit, consoleError, stopSettledAtExit } = await runIndex(
       jest.fn().mockResolvedValue(app),
+      app,
     );
 
     expect(consoleError.mock.calls).toEqual([
@@ -123,6 +153,7 @@ describe('index.ts composition root', () => {
       ['APP cleanup after startup failure failed:', cleanupError],
     ]);
     expect(exit).toHaveBeenCalledWith(1);
+    expect(stopSettledAtExit).toEqual([true]);
   });
 
   it('exits with 1 without cleanup when the application cannot be created', async () => {

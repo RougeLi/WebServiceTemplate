@@ -1,5 +1,16 @@
 import { AppContainer, GlobalContainerConfigEntries } from 'src/core/types';
 
+function describeRejection(value: unknown): string {
+  try {
+    return value instanceof Error
+      ? `${value.message}\n        ${value.stack ?? ''}`
+      : String(value);
+  } catch {
+    // Values without a usable string conversion (e.g. Object.create(null)).
+    return Object.prototype.toString.call(value);
+  }
+}
+
 type InitTask = {
   onInitiate: (container: AppContainer) => Promise<void>;
   required: boolean;
@@ -32,10 +43,7 @@ async function executeOnInitiateHooks(
       } catch (e) {
         // Hooks may reject with any value (even undefined); logging must not
         // throw, or the remaining hooks would no longer be awaited.
-        const details =
-          e instanceof Error
-            ? `${e.message}\n        ${e.stack ?? ''}`
-            : String(e);
+        const details = describeRejection(e);
         console.error(`Error occurred while executing ${required ? 'required ' : ''}onInitiate hook.
         Error: ${details}`);
         if (required) {
