@@ -32,16 +32,14 @@ Run the following commands from the repository root. Use the Node.js major in [.
 
    The [development Compose file](.dev-app-projects/docker-compose.yaml) pairs `postgres:latest` with the data mount used by PostgreSQL 17 and earlier (`/var/lib/postgresql/data`). For a fresh database using the official PostgreSQL 18 or later image, mount a new data directory at `/var/lib/postgresql` in your local Compose configuration. See the [official image's volume guidance](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata).
 
-3. Install dependencies, generate the Prisma client and build before starting the watchers.
+3. Install the dependencies and start the development server.
 
    ```bash
    pnpm run install:ci
-   pnpm run prisma:generate
-   pnpm run build
    pnpm start
    ```
 
-   The current build script runs TypeScript before its own generation step. A clean checkout needs the explicit generation above so the compiler can resolve the client. Starting the watchers after the build also gives the server watcher its `build/index.js` entry point.
+   `pnpm start` runs the build once. It generates Prisma Client, compiles TypeScript, then starts the TypeScript and nodemon watchers. A failed generation or compilation exits before either watcher starts. Save a TypeScript source file to rebuild and restart the server.
 
 4. With the example settings, open `http://localhost:3000/` for the welcome page and `http://localhost:3000/docs` for Swagger UI. The UI is enabled in non-production environments.
 
@@ -101,7 +99,7 @@ Run scripts from the repository root. Their definitions are in [package.json](pa
 | --- | --- |
 | `pnpm run install:ci` / `pnpm run install:dev` | Install with a frozen lockfile, or allow lockfile updates during development. |
 | `pnpm run prisma:generate` | Generate the client used by the TypeScript sources. |
-| `pnpm run build` / `pnpm start` | Build once, or run the TypeScript and server watchers after the initial build. |
+| `pnpm run build` / `pnpm start` | Generate Prisma Client and compile once, or build and start both development watchers. |
 | `pnpm run lint` | Run source and spec type checks, Prettier checks and ESLint. |
 | `pnpm run lint:fix` | Apply the configured formatting and ESLint fixes. |
 | `pnpm run unittest` / `pnpm run unittest:coverage` | Run Jest with or without coverage reporting. |
