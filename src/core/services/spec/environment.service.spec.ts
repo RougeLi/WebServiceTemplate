@@ -36,4 +36,33 @@ describe('EnvironmentService', () => {
     const isDev = environmentService.isDevelopment();
     expect(isDev).toBe(false);
   });
+
+  describe('PRISMA_QUERY_MAX_STR_LEN', () => {
+    const originalMaxStrLen = process.env.PRISMA_QUERY_MAX_STR_LEN;
+
+    afterEach(() => {
+      if (originalMaxStrLen === undefined) {
+        delete process.env.PRISMA_QUERY_MAX_STR_LEN;
+      } else {
+        process.env.PRISMA_QUERY_MAX_STR_LEN = originalMaxStrLen;
+      }
+    });
+
+    it('should construct and expose the value as a number when it is set', () => {
+      process.env.PRISMA_QUERY_MAX_STR_LEN = '500';
+      const config = new EnvironmentService().getConfig();
+      expect(config.prismaQueryMaxStrLen).toBe(500);
+    });
+
+    it('should leave the value undefined when it is unset', () => {
+      delete process.env.PRISMA_QUERY_MAX_STR_LEN;
+      const config = new EnvironmentService().getConfig();
+      expect(config.prismaQueryMaxStrLen).toBeUndefined();
+    });
+
+    it('should fail to construct when the value is not a positive integer', () => {
+      process.env.PRISMA_QUERY_MAX_STR_LEN = 'abc';
+      expect(() => new EnvironmentService()).toThrow();
+    });
+  });
 });

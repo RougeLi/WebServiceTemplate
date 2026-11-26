@@ -2,6 +2,7 @@ import { asClass, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
 import { ContainerTokens, Environment } from 'src/core/constants';
 import { AppConfigType } from '../../types';
+import EnvironmentService from '../environment.service';
 import PrismaConfig from '../prisma.config';
 
 describe('PrismaConfig', () => {
@@ -164,6 +165,34 @@ describe('PrismaConfig', () => {
       it(description, () => {
         const options = prismaConfig.getFormatQueryEventOptions(config);
         expect(options).toEqual(expectedOptions);
+      });
+    });
+
+    describe('with PRISMA_QUERY_MAX_STR_LEN parsed by EnvironmentService', () => {
+      const originalMaxStrLen = process.env.PRISMA_QUERY_MAX_STR_LEN;
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+        if (originalMaxStrLen === undefined) {
+          delete process.env.PRISMA_QUERY_MAX_STR_LEN;
+        } else {
+          process.env.PRISMA_QUERY_MAX_STR_LEN = originalMaxStrLen;
+        }
+      });
+
+      it('should receive the value as a number and pass it on as maxStrLen', () => {
+        process.env.PRISMA_QUERY_MAX_STR_LEN = '500';
+        const getFormatQueryEventOptionsSpy = jest.spyOn(
+          PrismaConfig.prototype,
+          'getFormatQueryEventOptions',
+        );
+
+        const config = new PrismaConfig(new EnvironmentService());
+
+        expect(getFormatQueryEventOptionsSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ prismaQueryMaxStrLen: 500 }),
+        );
+        expect(config.formatQueryEventOptions.maxStrLen).toBe(500);
       });
     });
   });
