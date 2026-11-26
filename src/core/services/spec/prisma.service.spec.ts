@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { asClass, asValue, AwilixContainer } from 'awilix';
+import { asClass, asFunction, asValue, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
 import { getEnvironmentServiceMock } from 'test-utils/mocks';
 import {
@@ -56,7 +56,6 @@ function connectionOptions(
       connectionString: UNUSED_DATABASE_URL,
       max: 4,
       connectionTimeoutMillis: 1500,
-      options: '-c search_path="tenant_a"',
     },
     adapterOptions: { schema: 'tenant_a' },
     ignoredUrlParameters: [],
@@ -133,7 +132,7 @@ describe('PrismaService', () => {
     );
   });
 
-  it('should pass the pool size, timeout, search_path and schema to PrismaPg', () => {
+  it('should pass the pool size, timeout and schema to PrismaPg', () => {
     const options = connectionOptions();
     container.register(
       ContainerTokens.PRISMA_CONFIG,
@@ -152,7 +151,6 @@ describe('PrismaService', () => {
         connectionString: UNUSED_DATABASE_URL,
         max: 4,
         connectionTimeoutMillis: 1500,
-        options: '-c search_path="tenant_a"',
       },
       { schema: 'tenant_a' },
     );
@@ -330,7 +328,6 @@ describe('PrismaService', () => {
             'postgresql://app:secret@db.invalid:5432/app_db?schema=tenant_b',
           max: 7,
           connectionTimeoutMillis: 2500,
-          options: '-c search_path="tenant_b"',
         },
         { schema: 'tenant_b' },
       );
@@ -373,15 +370,28 @@ describe('PrismaService', () => {
       expect(fromOtherScope).toBe(fromRoot);
     });
 
-    it('should allow tests to replace the Client with a fake', () => {
+    it('should let tests override the production registration with a fake', () => {
       const fake: IDBService = {
         connect: jest.fn().mockResolvedValue(undefined),
         disconnect: jest.fn().mockResolvedValue(undefined),
       };
-      const testContainer = getTestContainer();
-      testContainer.register(ContainerTokens.PRISMA, asValue(fake));
+      // Same registration as globalDIConfigs, then a test override.
+      container.register(ContainerTokens.PRISMA, asValue(fake));
 
-      expect(testContainer.resolve(ContainerTokens.PRISMA)).toBe(fake);
+      class Consumer {
+        constructor(readonly prisma: IDBService) {}
+      }
+      container.register(
+        'consumer',
+        asFunction(
+          () =>
+            new Consumer(container.resolve<IDBService>(ContainerTokens.PRISMA)),
+        ).scoped(),
+      );
+      const scope = container.createScope();
+
+      expect(scope.resolve<Consumer>('consumer').prisma).toBe(fake);
+      expect(PrismaPg).not.toHaveBeenCalled();
     });
   });
 

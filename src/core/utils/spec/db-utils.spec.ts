@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { LoggerService } from 'src/core/services';
 import {
   CustomPrismaClient,
@@ -6,7 +9,6 @@ import {
 } from 'src/core/types';
 import { Prisma } from 'src/generated/prisma/client';
 import DbUtils, {
-  buildSearchPathOption,
   DatabaseConfigurationError,
   formatQueryEvent,
   getDriverAdapterErrorKind,
@@ -296,7 +298,7 @@ describe('DbUtils', () => {
         connectionString: url,
         schema: undefined,
         ignoredParameters: [],
-        hasOptionsParameter: false,
+        setsSearchPath: false,
       });
     });
 
@@ -322,11 +324,62 @@ describe('DbUtils', () => {
       ).toBeUndefined();
     });
 
-    it('should report whether pg `options` are set in the URL', () => {
+    it('should report whether the pg `options` parameter sets search_path', () => {
       expect(
-        parseDatabaseUrl('postgresql://app@db/app_db?options=-c%20x%3D1')
-          .hasOptionsParameter,
+        parseDatabaseUrl(
+          'postgresql://app@db/app_db?options=-c%20search_path%3Dtenant_a',
+        ).setsSearchPath,
       ).toBe(true);
+      expect(
+        parseDatabaseUrl(
+          'postgresql://app@db/app_db?options=-c%20statement_timeout%3D5000',
+        ).setsSearchPath,
+      ).toBe(false);
+    });
+
+    describe('certificate parameters', () => {
+      let directory: string;
+      let certificate: string;
+
+      beforeAll(() => {
+        directory = fs.mkdtempSync(path.join(os.tmpdir(), 'db-utils-spec-'));
+        certificate = path.join(directory, 'ca.pem');
+        fs.writeFileSync(certificate, 'test');
+      });
+
+      afterAll(() => {
+        fs.rmSync(directory, { recursive: true, force: true });
+      });
+
+      it('should accept readable certificate files', () => {
+        expect(() =>
+          parseDatabaseUrl(
+            `postgresql://app@db/app_db?sslmode=verify-full&sslrootcert=${encodeURIComponent(certificate)}`,
+          ),
+        ).not.toThrow();
+      });
+
+      it.each(['sslrootcert', 'sslcert', 'sslkey'])(
+        'should reject a %s that is not a readable file without echoing the path',
+        (name) => {
+          const missing = path.join(directory, 'missing-secret.pem');
+          for (const value of [missing, directory]) {
+            let thrown: unknown;
+            try {
+              parseDatabaseUrl(
+                `postgresql://app@db/app_db?${name}=${encodeURIComponent(value)}`,
+              );
+            } catch (error) {
+              thrown = error;
+            }
+            expect(thrown).toBeInstanceOf(DatabaseConfigurationError);
+            expect((thrown as Error).message).toBe(
+              `DATABASE_URL ${name} does not point to a readable file.`,
+            );
+            expect((thrown as Error).message).not.toContain('missing-secret');
+          }
+        },
+      );
     });
 
     it('should list Prisma 6 parameters that the pg driver ignores', () => {
@@ -379,17 +432,6 @@ describe('DbUtils', () => {
         expect(error.cause).toBeUndefined();
       },
     );
-  });
-
-  describe('buildSearchPathOption', () => {
-    it.each([
-      ['tenant_a', '-c search_path="tenant_a"'],
-      ['Tenant A', '-c search_path="Tenant\\ A"'],
-      ['we"ird', '-c search_path="we""ird"'],
-      ['back\\slash', '-c search_path="back\\\\slash"'],
-    ])('should quote %p for the pg options parameter', (schema, expected) => {
-      expect(buildSearchPathOption(schema)).toBe(expected);
-    });
   });
 
   describe('getDriverAdapterErrorKind', () => {

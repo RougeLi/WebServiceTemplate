@@ -250,35 +250,38 @@ describe('PrismaConfig', () => {
       });
     });
 
-    it('should apply ?schema= to model queries and to the search_path, and warn about ignored Prisma 6 parameters', () => {
+    it('should pass ?schema= to the adapter and warn that raw SQL keeps the search_path', () => {
       const options = prismaConfig.getDatabaseConnectionOptions(
-        'postgresql://app:secret@db/app_db?schema=tenant_a&connection_limit=5',
+        'postgresql://app:secret@db/app_db?schema=tenant_a',
       );
       expect(options.adapterOptions).toEqual({ schema: 'tenant_a' });
-      expect(options.poolConfig.options).toBe('-c search_path="tenant_a"');
-      expect(options.ignoredUrlParameters).toEqual(['connection_limit']);
-      expect(options.warnings).toHaveLength(1);
-      expect(options.warnings[0]).toContain('connection_limit');
-      expect(options.warnings[0]).not.toContain('secret');
-    });
-
-    it('should not set a search_path without ?schema=', () => {
-      const options = prismaConfig.getDatabaseConnectionOptions(
-        'postgresql://app@db/app_db',
-      );
-      expect(options.poolConfig).not.toHaveProperty('options');
-      expect(options.adapterOptions).toEqual({});
-    });
-
-    it('should warn instead of overriding the URL options parameter', () => {
-      const options = prismaConfig.getDatabaseConnectionOptions(
-        'postgresql://app:secret@db/app_db?schema=tenant_a&options=-c%20statement_timeout%3D5000',
-      );
-      expect(options.adapterOptions).toEqual({ schema: 'tenant_a' });
-      expect(options.poolConfig).not.toHaveProperty('options');
+      expect(options.poolConfig).toEqual({
+        connectionString: 'postgresql://app:secret@db/app_db?schema=tenant_a',
+        max: 10,
+        connectionTimeoutMillis: 10000,
+      });
       expect(options.warnings).toEqual([
         expect.stringContaining('`schema` applies to model queries only'),
       ]);
+      expect(options.warnings[0]).not.toContain('secret');
+    });
+
+    it('should not warn about raw SQL when the URL options set the search_path', () => {
+      const options = prismaConfig.getDatabaseConnectionOptions(
+        'postgresql://app@db/app_db?schema=tenant_a&options=-c%20search_path%3Dtenant_a',
+      );
+      expect(options.adapterOptions).toEqual({ schema: 'tenant_a' });
+      expect(options.warnings).toEqual([]);
+    });
+
+    it('should warn about ignored Prisma 6 parameters without the URL', () => {
+      const options = prismaConfig.getDatabaseConnectionOptions(
+        'postgresql://app:secret@db/app_db?connection_limit=5',
+      );
+      expect(options.adapterOptions).toEqual({});
+      expect(options.ignoredUrlParameters).toEqual(['connection_limit']);
+      expect(options.warnings).toHaveLength(1);
+      expect(options.warnings[0]).toContain('connection_limit');
       expect(options.warnings[0]).not.toContain('secret');
     });
 

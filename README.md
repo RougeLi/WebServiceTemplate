@@ -487,10 +487,14 @@ builds a `PrismaPg` adapter:
 
 - `DATABASE_URL` must be non-empty after trimming, parse as a URL, use the
   `postgresql:` or `postgres:` scheme and include a host (or a `host` query
-  parameter). Otherwise a `DatabaseConfigurationError` is thrown whose message
-  never contains the URL. pg itself would silently fall back to
-  `localhost:5432` for an empty URL, and would parse a value such as
+  parameter), and any `sslrootcert`, `sslcert` or `sslkey` must point to a
+  readable file. Otherwise a `DatabaseConfigurationError` is thrown whose
+  message never contains the URL or the path. pg itself would silently fall
+  back to `localhost:5432` for an empty URL, and would parse a value such as
   `not-a-url` relative to a dummy URL and connect to an unintended host.
+- A Unix-socket URL with credentials needs a placeholder host, for example
+  `postgresql://<user>:<password>@localhost/<database>?host=/var/run/postgresql`;
+  the form with an empty host (`@/`) is not a valid URL.
 - Validation happens on resolve, not on import, registration or
   `EnvironmentService` construction, so unit tests and builds do not need
   `DATABASE_URL`.
@@ -503,8 +507,8 @@ builds a `PrismaPg` adapter:
 | Connect / pool wait timeout | `connect_timeout` (5 s) and `pool_timeout` (10 s) | `DATABASE_CONNECTION_TIMEOUT_MS`, default `10000`, covers both |
 | Timeout error | `P2024` | Plain `Error`: `Connection terminated due to connection timeout` or `timeout exceeded when trying to connect` |
 | Idle connections | engine default | pg default, closed after 10 s idle |
-| `?schema=` | applied by the engine (`SET search_path`) | parsed by the template: `PrismaPg`'s `schema` option for model queries, plus `-c search_path=<schema>` in pg's `options` for raw SQL |
-| TLS without `sslmode` | `sslmode=prefer` (TLS when the server offers it) | no TLS; set `sslmode` explicitly |
+| `?schema=` | applied by the engine to every query (`SET search_path`) | parsed by the template and passed as `PrismaPg`'s `schema` option: model queries only; raw SQL keeps the connection `search_path` |
+| TLS without SSL parameters | `sslmode=prefer` (TLS when the server offers it) | no TLS unless `sslmode`, `ssl=true`, a certificate parameter or `PGSSLMODE` is set |
 | Interactive transactions | `maxWait` 2000 ms, `timeout` 5000 ms | unchanged (`P2028` when exceeded) |
 
 pg's own connection timeout default is `0` (wait forever), which would block
@@ -516,20 +520,28 @@ Prisma 6-only URL parameters (`connection_limit`, `pool_timeout`,
 `channel_binding`, `sslaccept`, `sslidentity`, `sslpassword`) are not applied
 by pg. When present, `PrismaService` logs a warning that lists only their
 names. Parameters pg understands (for example `sslmode`, `sslrootcert`,
-`application_name`, `options`) are applied. `?schema=` is honoured by the CLI
-and, at runtime, by both model queries and raw SQL (`$queryRaw`,
-`$executeRaw`), so they target the same PostgreSQL schema. If the URL also
-sets `options`, the URL value wins in pg; the template then logs a warning and
-`schema` applies to model queries only, so add `-c search_path=<schema>` to
-`options` yourself.
+`application_name`, `options`) are applied.
+
+`?schema=` is honoured by the CLI and by model queries, so migrations and the
+Client's model API target the same PostgreSQL schema. Raw SQL (`$queryRaw`,
+`$executeRaw`) is different from Prisma 6: it runs with the connection's
+`search_path`, so unqualified table names resolve in `public` (or the role's
+default). When `?schema=` is set, `PrismaService` logs a warning unless the
+URL's `options` parameter sets the search path. Either schema-qualify raw SQL
+or, when connecting directly to PostgreSQL, add
+`options=-c%20search_path%3D<schema>` to `DATABASE_URL`. The template does not
+add that startup parameter itself because connection poolers such as PgBouncer
+reject unknown startup parameters by default.
 
 `sslmode` is applied by pg: `sslmode=require` against a server without TLS
 fails with `TlsConnectionError`. pg currently treats `prefer`, `require` and
 `verify-ca` as `verify-full` and prints a security warning that pg 9 will
 switch to libpq semantics; use `sslmode=verify-full` to keep today's behaviour
-explicitly. Without `sslmode` pg does not use TLS at all, whereas Prisma 6
-defaulted to `prefer`; set `sslmode` (with `sslrootcert` for a private CA)
-when the server requires TLS. Certificate parameters also changed meaning:
+explicitly. Without any SSL setting (`sslmode`, `ssl=true`, `sslrootcert`,
+`sslcert`, `sslkey` or the `PGSSLMODE` environment variable) pg does not use
+TLS, whereas Prisma 6 defaulted to `prefer`; set `sslmode` (with
+`sslrootcert` for a private CA) when the server requires TLS. Any certificate
+parameter turns on verified TLS. Certificate parameters also changed meaning:
 Prisma 6's `sslcert` was the server (CA) certificate, while pg reads `sslcert`
 as the client certificate and `sslrootcert` as the CA, and pg resolves the
 paths relative to the working directory instead of `./prisma`. Never disable
@@ -616,6 +628,8 @@ With Prisma 7.10.1 and `PrismaPg`:
 - Review TLS settings: add `sslmode` where Prisma 6's default `prefer` was
   relied on, replace Prisma 6 `sslcert=<CA>` with `sslrootcert=<CA>`, and use
   paths relative to the working directory.
+- With `?schema=`, schema-qualify raw SQL or set `search_path` through the
+  URL's `options` parameter; Prisma 7 applies `schema` to model queries only.
 - `package.json#prisma` was removed; the seed command lives in
   `prisma.config.ts`. `build` now generates before compiling, `start`
   generates first, and `prisma:seed` was added.

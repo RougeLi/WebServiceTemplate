@@ -1,3 +1,4 @@
+import fs from 'fs';
 import {
   CustomPrismaClient,
   FormatQueryEventOptions,
@@ -19,6 +20,9 @@ const TRUNCATED_STRING = '... (truncated)';
 const MAX_STRING_LENGTH = 1000;
 
 const SUPPORTED_DATABASE_URL_PROTOCOLS = new Set(['postgres:', 'postgresql:']);
+
+/** URL parameters that pg reads as file paths (relative to the cwd). */
+const CERTIFICATE_URL_PARAMETERS = ['sslrootcert', 'sslcert', 'sslkey'];
 
 /**
  * Prisma 6 connection URL parameters that the pg driver used by
@@ -106,6 +110,17 @@ export function parseDatabaseUrl(
     throw new DatabaseConfigurationError('DATABASE_URL must include a host.');
   }
 
+  // pg reads these files while connecting and would fail every retry with
+  // ENOENT, an error without a driver adapter kind; reject them up front.
+  for (const name of CERTIFICATE_URL_PARAMETERS) {
+    const path = url.searchParams.get(name);
+    if (path && !isReadableFile(path)) {
+      throw new DatabaseConfigurationError(
+        `DATABASE_URL ${name} does not point to a readable file.`,
+      );
+    }
+  }
+
   const schema = url.searchParams.get('schema')?.trim() || undefined;
   const ignoredParameters = IGNORED_PRISMA6_URL_PARAMETERS.filter((name) =>
     url.searchParams.has(name),
@@ -115,19 +130,17 @@ export function parseDatabaseUrl(
     connectionString,
     schema,
     ignoredParameters,
-    hasOptionsParameter: url.searchParams.has('options'),
+    setsSearchPath: /search_path/i.test(url.searchParams.get('options') ?? ''),
   };
 }
 
-/**
- * Builds the pg `options` startup parameter that sets `search_path` to
- * `schema`, the equivalent of Prisma 6's per-connection
- * `SET search_path = "<schema>"`. The identifier is double-quoted, and
- * backslashes and whitespace are escaped for the server's option parser.
- */
-export function buildSearchPathOption(schema: string): string {
-  const quoted = `"${schema.replaceAll('"', '""')}"`;
-  return `-c search_path=${quoted.replaceAll(/[\\\s]/g, (char) => `\\${char}`)}`;
+function isReadableFile(path: string): boolean {
+  try {
+    fs.accessSync(path, fs.constants.R_OK);
+    return fs.statSync(path).isFile();
+  } catch {
+    return false;
+  }
 }
 
 type DriverAdapterErrorCause = {
@@ -366,7 +379,6 @@ const DbUtils = {
   getConnectMethod,
   getDisconnectMethod,
   parseDatabaseUrl,
-  buildSearchPathOption,
   getDriverAdapterErrorKind,
   isFailFastConnectionError,
 };

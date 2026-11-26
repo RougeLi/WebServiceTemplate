@@ -8,10 +8,7 @@ import {
   PrismaLogLevels,
   PrismaPgPoolConfig,
 } from 'src/core/types';
-import {
-  buildSearchPathOption,
-  parseDatabaseUrl,
-} from 'src/core/utils/db-utils';
+import { parseDatabaseUrl } from 'src/core/utils/db-utils';
 import EnvironmentService from './environment.service';
 
 /** pg default pool size (Prisma 6 used CPU count × 2 + 1). */
@@ -96,16 +93,17 @@ export default class PrismaConfig {
    * to be created, not when this config is constructed, so code paths that
    * never resolve the Client (unit tests, build) do not need it.
    *
-   * `?schema=` keeps its Prisma 6 meaning: it is passed as the adapter's
-   * `schema` option (model queries) and, through pg's `options` startup
-   * parameter, as the connection's `search_path` (raw SQL).
+   * `?schema=` is passed as the adapter's `schema` option, which qualifies
+   * model queries. Raw SQL keeps the connection's `search_path` (Prisma 6 ran
+   * `SET search_path`), so a warning is logged unless the URL's `options`
+   * parameter sets the search_path itself.
    *
    * @throws DatabaseConfigurationError when DATABASE_URL is missing or invalid.
    */
   getDatabaseConnectionOptions(
     databaseUrl: string | undefined = process.env.DATABASE_URL,
   ): DatabaseConnectionOptions {
-    const { connectionString, schema, ignoredParameters, hasOptionsParameter } =
+    const { connectionString, schema, ignoredParameters, setsSearchPath } =
       parseDatabaseUrl(databaseUrl);
     const warnings: string[] = [];
 
@@ -115,15 +113,11 @@ export default class PrismaConfig {
       connectionTimeoutMillis: this.databaseConnectionTimeoutMs,
     };
 
-    if (schema && hasOptionsParameter) {
-      // pg lets the URL's `options` override the pool config, so the
-      // search_path cannot be added without rewriting the URL.
+    if (schema && !setsSearchPath) {
       warnings.push(
-        'DATABASE_URL sets both `schema` and `options`; `schema` applies to model queries only. ' +
-          'Add `-c search_path=<schema>` to `options` for raw SQL.',
+        'DATABASE_URL `schema` applies to model queries only; raw SQL ($queryRaw, $executeRaw) uses the connection search_path. ' +
+          'Schema-qualify raw SQL, or add `options=-c search_path=<schema>` to DATABASE_URL when connecting directly to PostgreSQL.',
       );
-    } else if (schema) {
-      poolConfig.options = buildSearchPathOption(schema);
     }
 
     if (ignoredParameters.length > 0) {
