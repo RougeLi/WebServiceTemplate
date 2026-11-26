@@ -1,4 +1,4 @@
-import { parseDatabaseUrl } from '../src/core/utils/db-utils';
+import { parseDatabaseTarget } from '../src/core/config/database-url';
 
 /**
  * Seed entry point for `pnpm run prisma:seed` (`prisma db seed`).
@@ -10,7 +10,7 @@ import { parseDatabaseUrl } from '../src/core/utils/db-utils';
  * with a PrismaPg adapter, and call `$disconnect()` in a `finally` block.
  */
 async function main(): Promise<void> {
-  parseDatabaseUrl(process.env.DATABASE_URL);
+  parseDatabaseTarget(process.env.DATABASE_URL);
 }
 
 main()

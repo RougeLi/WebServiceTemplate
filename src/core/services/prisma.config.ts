@@ -1,3 +1,4 @@
+import { parseDatabaseUrl } from 'src/core/config/postgres-options';
 import { Environment } from 'src/core/constants';
 import {
   AppConfigType,
@@ -8,7 +9,6 @@ import {
   PrismaLogLevels,
   PrismaPgPoolConfig,
 } from 'src/core/types';
-import { parseDatabaseUrl } from 'src/core/utils/db-utils';
 import EnvironmentService from './environment.service';
 
 /** pg default pool size (Prisma 6 used CPU count × 2 + 1). */
@@ -101,7 +101,7 @@ export default class PrismaConfig {
    * @throws DatabaseConfigurationError when DATABASE_URL is missing or invalid.
    */
   getDatabaseConnectionOptions(
-    databaseUrl: string | undefined = process.env.DATABASE_URL,
+    databaseUrl: string | undefined = this.environment.getDatabaseUrl(),
   ): DatabaseConnectionOptions {
     const { connectionString, schema, ignoredParameters, optionsSearchPath } =
       parseDatabaseUrl(databaseUrl);
@@ -116,7 +116,7 @@ export default class PrismaConfig {
     if (schema && optionsSearchPath !== schema) {
       warnings.push(
         'DATABASE_URL `schema` applies to model queries only; raw SQL ($queryRaw, $executeRaw) uses the connection search_path. ' +
-          'Schema-qualify raw SQL, or add the URL-encoded `options=-c%20search_path%3D<schema>` to DATABASE_URL when connecting directly to PostgreSQL.',
+          'Qualify table names in raw SQL when migrating queries that relied on the Prisma 6 URL schema.',
       );
     }
 

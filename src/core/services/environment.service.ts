@@ -5,9 +5,17 @@ import { AppConfigType } from 'src/core/types';
 export default class EnvironmentService {
   private readonly config: AppConfigType;
 
+  private readonly databaseUrl?: string;
+
   constructor() {
     const parsedEnvironment = EnvironmentSchema.parse(process.env);
+    this.databaseUrl = parsedEnvironment.DATABASE_URL;
     this.config = transformEnvironment(parsedEnvironment);
+  }
+
+  /** Keeps the connection string out of the general application config. */
+  getDatabaseUrl(): string | undefined {
+    return this.databaseUrl;
   }
 
   getConfig(): AppConfigType {

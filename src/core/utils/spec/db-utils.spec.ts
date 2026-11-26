@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { checkDatabaseCertificateFiles } from 'src/core/config/postgres-options';
 import { LoggerService } from 'src/core/services';
 import {
   CustomPrismaClient,
@@ -358,6 +359,25 @@ describe('DbUtils', () => {
       ).toBeUndefined();
     });
 
+    it('should validate the effective host when the URL has no hostname', () => {
+      expect(() =>
+        parseDatabaseUrl('postgresql:///fixture?host=db&host='),
+      ).toThrow(DatabaseConfigurationError);
+      expect(() =>
+        parseDatabaseUrl('postgresql:///fixture?host=&host=/tmp/fixture'),
+      ).not.toThrow();
+    });
+
+    it.each([
+      'postgresql://user:p%80@db/test',
+      'postgresql://%80@db/test',
+      'postgresql://db/%80',
+    ])('should reject invalid UTF-8 before pg decodes a target', (url) => {
+      expect(() => parseDatabaseUrl(url)).toThrow(
+        'DATABASE_URL is not a valid URL.',
+      );
+    });
+
     describe('certificate parameters', () => {
       let directory: string;
       let certificate: string;
@@ -374,7 +394,7 @@ describe('DbUtils', () => {
 
       it('should accept readable certificate files', () => {
         expect(() =>
-          parseDatabaseUrl(
+          checkDatabaseCertificateFiles(
             `postgresql://app@db/app_db?sslmode=verify-full&sslrootcert=${encodeURIComponent(certificate)}`,
           ),
         ).not.toThrow();
@@ -382,7 +402,7 @@ describe('DbUtils', () => {
 
       it('should check the last certificate parameter, which is the one pg reads', () => {
         expect(() =>
-          parseDatabaseUrl(
+          checkDatabaseCertificateFiles(
             `postgresql://app@db/app_db?sslrootcert=${encodeURIComponent(certificate)}&sslrootcert=${encodeURIComponent(path.join(directory, 'missing.pem'))}`,
           ),
         ).toThrow(
@@ -394,12 +414,12 @@ describe('DbUtils', () => {
         // pg-connection-string re-encodes the whole URL when it contains a
         // space, so %2F in the path is read literally and the file is missing.
         expect(() =>
-          parseDatabaseUrl(
+          checkDatabaseCertificateFiles(
             `postgresql://app@db/app_db?application_name=a b&sslrootcert=${encodeURIComponent(certificate)}`,
           ),
         ).toThrow(DatabaseConfigurationError);
         expect(() =>
-          parseDatabaseUrl(
+          checkDatabaseCertificateFiles(
             `postgresql://app@db/app_db?application_name=a b&sslrootcert=${certificate}`,
           ),
         ).not.toThrow();
@@ -412,7 +432,7 @@ describe('DbUtils', () => {
           for (const value of [missing, directory]) {
             let thrown: unknown;
             try {
-              parseDatabaseUrl(
+              checkDatabaseCertificateFiles(
                 `postgresql://app@db/app_db?${name}=${encodeURIComponent(value)}`,
               );
             } catch (error) {
