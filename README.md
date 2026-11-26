@@ -28,11 +28,9 @@ Run the following commands from the repository root. Use the Node.js major in [.
    cp .env.example .env
    ```
 
-2. Supply a local PostgreSQL database for the server. The example URL matches the database in the [development Compose file](.dev-app-projects/docker-compose.yaml). If you use Docker Compose, start it and wait until PostgreSQL accepts connections. For an existing local database, set `DATABASE_URL` in your own `.env` instead.
+2. Set `DATABASE_URL` in your `.env` to a running local PostgreSQL database and confirm it accepts connections.
 
-   ```bash
-   docker compose -f .dev-app-projects/docker-compose.yaml up -d db
-   ```
+   The [development Compose file](.dev-app-projects/docker-compose.yaml) pairs `postgres:latest` with the data mount used by PostgreSQL 17 and earlier (`/var/lib/postgresql/data`). For a fresh database using the official PostgreSQL 18 or later image, mount a new data directory at `/var/lib/postgresql` in your local Compose configuration. See the [official image's volume guidance](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata).
 
 3. Install dependencies, generate the Prisma client and build before starting the watchers.
 
@@ -90,6 +88,8 @@ flowchart TD
 ```
 
 At runtime an HTTP request reaches the route, the controller converts the input and the use case calls the injected adapter through its port. An adapter backed by a database then calls the shared client. A compiled TypeScript interface adds no runtime call. A use case that only computes a result can call a pure domain function directly.
+
+For new or explicitly refactored business flows, the source dependency is `Use Case → Port ← Adapter`. Use cases and domain code stay independent of concrete adapters, ORM types and HTTP transport types.
 
 The stock application supports one active application per Node process. Its entry point explicitly registers `WebServerModule`. A business `IModule` declares dependencies, while an `IStartupModule` owns initialization, start and stop work. The precise boot order, initializer pool and current cleanup limits are documented in the [startup module guide](src/core/types/README.md).
 
@@ -153,10 +153,10 @@ export interface EntryReader {
 import type { EntryReader } from './entry-reader.port';
 
 export class FindPublishedEntryUseCase {
-  constructor(private readonly catalogEntryReader: EntryReader) {}
+  constructor(private readonly entryReader: EntryReader) {}
 
   async execute(id: string) {
-    const entry = await this.catalogEntryReader.findById(id);
+    const entry = await this.entryReader.findById(id);
     if (entry?.published) {
       return { id: entry.id, title: entry.title };
     }
@@ -199,10 +199,15 @@ export type EntryParams = Static<typeof entryParamsSchema>;
 ```typescript
 // src/modules/catalog/controllers/catalog.controller.ts
 import { NotFoundError } from 'src/core/server';
-import type { FindPublishedEntryUseCase } from '../use-cases/find-published-entry/find-published-entry.use-case';
+import type { EntryReader } from '../use-cases/find-published-entry/entry-reader.port';
+import { FindPublishedEntryUseCase } from '../use-cases/find-published-entry/find-published-entry.use-case';
 
 export class CatalogController {
-  constructor(private readonly findPublishedEntry: FindPublishedEntryUseCase) {}
+  private readonly findPublishedEntry: FindPublishedEntryUseCase;
+
+  constructor(catalogEntryReader: EntryReader) {
+    this.findPublishedEntry = new FindPublishedEntryUseCase(catalogEntryReader);
+  }
 
   async find(id: string) {
     const entry = await this.findPublishedEntry.execute(id);
@@ -238,7 +243,7 @@ export class CatalogRoute extends BaseRoute {
 
 ### Module registration
 
-The stock Awilix container uses classic injection. Each string token below matches the constructor parameter that consumes it. This example registers the use case because the controller receives it through DI. A pure calculation needs no registration.
+The route registry resolves `catalogRoute`. Awilix `CLASSIC` injection uses constructor parameter names as tokens. The route receives `catalogController`, and the controller receives `catalogEntryReader`. The module selects one reader for all catalog requests. The controller is the sole consumer of the use case and constructs it directly with that reader. See the [DI and composition guidelines](AGENTS.md#di-與直接組裝).
 
 ```typescript
 // src/modules/catalog/catalog.module.ts
@@ -246,13 +251,11 @@ import { BaseModule } from 'src/core/utils';
 import { InMemoryEntryReader } from './adapters/in-memory-entry-reader.adapter';
 import { CatalogController } from './controllers/catalog.controller';
 import { CatalogRoute } from './routes/catalog.route';
-import { FindPublishedEntryUseCase } from './use-cases/find-published-entry/find-published-entry.use-case';
 
 export class CatalogModule extends BaseModule {
   registerDependencies(): void {
     this.registerSingletons([
       ['catalogEntryReader', InMemoryEntryReader],
-      ['findPublishedEntry', FindPublishedEntryUseCase],
       ['catalogController', CatalogController],
       ['catalogRoute', CatalogRoute],
     ]);
