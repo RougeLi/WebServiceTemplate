@@ -4,3 +4,11 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+
+# Prisma packages must be upgraded together and manually; keep them out of
+# `pnpm update --latest` (update:dependencies).
+updateConfig:
+  ignoreDependencies:
+    - '@prisma/adapter-pg'
+    - '@prisma/client'
+    - prisma

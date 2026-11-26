@@ -30,11 +30,11 @@ The [initializer pool](../utils/initializer-pool.ts) exports the shared `service
 
 ### Readiness and cleanup
 
-The [global Prisma registration](../di/global-di-configs.ts) tries to connect during `onInitiate`. The current [hook executor](../di/on-initiate-executor.ts) logs an ordinary rejected hook and allows initialization to finish. An authentication failure thrown by the connection helper can therefore be followed by HTTP startup. A response from the welcome route establishes HTTP availability only.
+The [Prisma singleton registration](../di/global-di-configs.ts) marks its initialization hook as `required`. It executes `SELECT 1` through `$queryRaw` before the HTTP module can listen. A temporary connection failure keeps HTTP closed while the service retries. A configuration, authentication, access or TLS error rejects initialization. The [hook executor](../di/on-initiate-executor.ts) waits for all hooks to settle, then propagates the first required failure in the order it occurred. It logs optional hook failures and continues.
 
-[Fastify's Awilix registration](../server/bootstrap/web-server.ts) enables disposal on response for request scopes and on close for the supplied container. The current Prisma registration has no resolver disposer wired to its `disconnect()` method. The stock entry point installs its shutdown handler after startup and has no catch path to call `app.stop()` on an earlier startup failure.
+[Fastify's Awilix registration](../server/bootstrap/web-server.ts) disposes each request scope on response. The Prisma Client and pool remain available to the next request. On `app.stop()`, the HTTP module closes Fastify. Fastify disposes the root container and the Prisma singleton resolver's `onDispose` calls `disconnect()` once.
 
-The accepted [Prisma design](https://github.com/RougeLi/WebServiceTemplate/issues/35) specifies a readiness check before HTTP start and a single owner for Prisma cleanup. Under that design the singleton resolver's disposer releases the resource, and Fastify close triggers disposal in an HTTP application. The [application lifecycle design](https://github.com/RougeLi/WebServiceTemplate/issues/32) tracks general cleanup for other process types and decisions about repeated or concurrent lifecycle calls.
+If initialization or listen fails, the entry point reports the original error, awaits `app.stop()`, and exits with code 1. Module stop errors are logged separately so the original startup error remains visible. A process without the HTTP module needs its own disposal trigger. A query after disconnect can recreate the pool, and resolving a disposed singleton can create a new client. The [application lifecycle design](https://github.com/RougeLi/WebServiceTemplate/issues/32) tracks general non-HTTP cleanup and repeated or concurrent lifecycle calls.
 
 ## Creating a Startup Module
 

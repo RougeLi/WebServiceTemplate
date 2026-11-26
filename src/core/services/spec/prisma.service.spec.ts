@@ -1,58 +1,125 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { asClass, asValue, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
-import { ContainerTokens } from 'src/core/constants';
-import { LoggerService } from 'src/core/services';
-import { DbUtils } from 'src/core/utils';
+import { getEnvironmentServiceMock } from 'test-utils/mocks';
+import {
+  ContainerTokens,
+  Environment,
+  InjectionResolverMode,
+} from 'src/core/constants';
+import { EnvironmentService, LoggerService } from 'src/core/services';
+import { DatabaseConnectionOptions, IDBService } from 'src/core/types';
+import { DbUtils, makeContainerRegistration } from 'src/core/utils';
 import PrismaConfig from '../prisma.config';
 import PrismaService from '../prisma.service';
 
-jest.mock('src/core/utils/db-utils', () => ({
-  setupLogging: jest.fn(),
-  getConnectMethod: jest.fn(),
-  getDisconnectMethod: jest.fn(),
-}));
+// Wrap the real PrismaPg so tests can see the constructor arguments.
+jest.mock('@prisma/adapter-pg', () => {
+  const actual = jest.requireActual('@prisma/adapter-pg');
+  return {
+    ...actual,
+    __esModule: true,
+    PrismaPg: jest.fn(
+      (...args: ConstructorParameters<typeof actual.PrismaPg>) =>
+        new actual.PrismaPg(...args),
+    ),
+  };
+});
 
-type ServiceClassType<T> = new (
-  logger: LoggerService,
-  prismaConfig: PrismaConfig,
-) => T;
+const { PrismaPg: ActualPrismaPg } =
+  jest.requireActual<typeof import('@prisma/adapter-pg')>('@prisma/adapter-pg');
 
-const setupServiceTest = <T>(
-  token: string,
-  ServiceClass: ServiceClassType<T>,
-) => {
-  it(`should initialize ${ServiceClass.name} with logging and connect/disconnect methods`, () => {
-    const container: AwilixContainer = getTestContainer();
+jest.mock('src/core/utils/db-utils', () => {
+  const actual = jest.requireActual('src/core/utils/db-utils');
+  return {
+    ...actual,
+    __esModule: true,
+    // `DbUtils` is the default export; keep the real URL validation.
+    default: {
+      ...actual.default,
+      setupLogging: jest.fn(),
+      getConnectMethod: jest.fn(() => jest.fn().mockResolvedValue(undefined)),
+      getDisconnectMethod: jest.fn(),
+    },
+  };
+});
 
-    const commonPrismaConfig = {
-      prismaClientOptions: {
-        log: [
-          { emit: 'event', level: 'query' },
-          { emit: 'event', level: 'info' },
-        ],
-      },
-      logLevels: ['query', 'info', 'warn', 'error'],
-      formatQueryEventOptions: {
-        forceQueryLog: true,
-        maxStrLen: 1000,
-        enableJsonParse: true,
-        delimiter: ',',
-      },
-    };
+// A URL whose host is never contacted: creating the adapter is lazy.
+const UNUSED_DATABASE_URL =
+  'postgresql://app:secret@db.invalid:5432/app_db?schema=tenant_a';
 
+function connectionOptions(
+  overrides: Partial<DatabaseConnectionOptions> = {},
+): DatabaseConnectionOptions {
+  return {
+    poolConfig: {
+      connectionString: UNUSED_DATABASE_URL,
+      max: 4,
+      connectionTimeoutMillis: 1500,
+    },
+    adapterOptions: { schema: 'tenant_a' },
+    ignoredUrlParameters: [],
+    warnings: [],
+    ...overrides,
+  };
+}
+
+function prismaConfigMock(options = connectionOptions()) {
+  return {
+    prismaClientOptions: {
+      log: [
+        { emit: 'event', level: 'query' },
+        { emit: 'event', level: 'info' },
+      ],
+      errorFormat: 'minimal',
+    },
+    logLevels: ['query', 'info', 'warn', 'error'],
+    formatQueryEventOptions: {
+      forceQueryLog: true,
+      maxStrLen: 1000,
+      enableJsonParse: true,
+      delimiter: ',',
+    },
+    getDatabaseConnectionOptions: jest.fn().mockReturnValue(options),
+  };
+}
+
+describe('PrismaService', () => {
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+  let container: AwilixContainer;
+
+  beforeEach(() => {
+    container = getTestContainer();
+  });
+
+  afterEach(async () => {
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
+    await container.dispose();
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  it('should initialize with logging and connect/disconnect methods', () => {
+    const prismaConfig = prismaConfigMock();
+    container.register(ContainerTokens.PRISMA_CONFIG, asValue(prismaConfig));
     container.register(
-      ContainerTokens.PRISMA_CONFIG,
-      asValue(commonPrismaConfig),
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
     );
 
-    container.register(token, asClass(ServiceClass).singleton());
+    const serviceInstance = container.resolve<PrismaService>(
+      ContainerTokens.PRISMA,
+    );
 
-    const serviceInstance = container.resolve<T>(token);
-
+    expect(prismaConfig.getDatabaseConnectionOptions).toHaveBeenCalledTimes(1);
     expect(DbUtils.setupLogging).toHaveBeenCalledWith(
       expect.any(LoggerService),
-      commonPrismaConfig.logLevels,
-      commonPrismaConfig.formatQueryEventOptions,
+      prismaConfig.logLevels,
+      prismaConfig.formatQueryEventOptions,
       serviceInstance,
     );
     expect(DbUtils.getConnectMethod).toHaveBeenCalledWith(
@@ -64,16 +131,313 @@ const setupServiceTest = <T>(
       serviceInstance,
     );
   });
-};
 
-describe('Prisma Services', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+  it('should pass the pool size, timeout and schema to PrismaPg', () => {
+    const options = connectionOptions();
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asValue(prismaConfigMock(options)),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+
+    container.resolve(ContainerTokens.PRISMA);
+
+    expect(PrismaPg).toHaveBeenCalledTimes(1);
+    expect(PrismaPg).toHaveBeenCalledWith(
+      {
+        connectionString: UNUSED_DATABASE_URL,
+        max: 4,
+        connectionTimeoutMillis: 1500,
+      },
+      { schema: 'tenant_a' },
+    );
   });
 
-  describe('Initialization', () => {
-    describe('BackofficePrismaService', () => {
-      setupServiceTest('prismaService', PrismaService);
+  it('should keep the Prisma Client API for consumers', () => {
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asValue(prismaConfigMock()),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+
+    const prisma = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+
+    expect(typeof prisma.log.findMany).toBe('function');
+    expect(typeof prisma.$transaction).toBe('function');
+    expect(typeof prisma.$queryRaw).toBe('function');
+  });
+
+  it('should not open a database connection when the Client is created', () => {
+    const adapterConnect = jest.spyOn(ActualPrismaPg.prototype, 'connect');
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asValue(prismaConfigMock()),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+
+    container.resolve(ContainerTokens.PRISMA);
+
+    expect(adapterConnect).not.toHaveBeenCalled();
+  });
+
+  it('should log each connection warning from PrismaConfig', async () => {
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asValue(
+        prismaConfigMock(
+          connectionOptions({
+            warnings: ['first warning', 'second warning'],
+          }),
+        ),
+      ),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+    const logger = container.resolve<LoggerService>(ContainerTokens.LOGGER);
+    const warn = jest.spyOn(logger, 'warn');
+
+    const client = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+    expect(warn).not.toHaveBeenCalled();
+    await client.connect();
+
+    expect(warn.mock.calls).toEqual([['first warning'], ['second warning']]);
+  });
+
+  it('should warn about ignored Prisma 6 URL parameters without logging the URL', async () => {
+    process.env.DATABASE_URL =
+      'postgresql://app:secret@db.invalid:5432/app_db?connection_limit=1&pool_timeout=5';
+    container.register(
+      ContainerTokens.ENVIRONMENT,
+      asClass(EnvironmentService).singleton(),
+    );
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asClass(PrismaConfig).singleton(),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+    const logger = container.resolve<LoggerService>(ContainerTokens.LOGGER);
+    const warn = jest.spyOn(logger, 'warn');
+
+    const client = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+    expect(warn).not.toHaveBeenCalled();
+    await client.connect();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    const [message] = warn.mock.calls[0];
+    expect(message).toContain('connection_limit, pool_timeout');
+    expect(message).toContain('DATABASE_POOL_MAX');
+    expect(message).not.toContain('secret');
+    expect(message).not.toContain('db.invalid');
+  });
+
+  it('should not warn when DATABASE_URL has no ignored parameters', async () => {
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asValue(prismaConfigMock()),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+    const logger = container.resolve<LoggerService>(ContainerTokens.LOGGER);
+    const warn = jest.spyOn(logger, 'warn');
+
+    const client = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+    expect(warn).not.toHaveBeenCalled();
+    await client.connect();
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  describe('with the real PrismaConfig', () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+
+    beforeEach(() => {
+      container.register(
+        ContainerTokens.ENVIRONMENT,
+        asClass(EnvironmentService).singleton(),
+      );
+      container.register(
+        ContainerTokens.PRISMA_CONFIG,
+        asClass(PrismaConfig).singleton(),
+      );
+      container.register(
+        ContainerTokens.PRISMA,
+        asClass(PrismaService).singleton(),
+      );
     });
+
+    afterEach(() => {
+      if (originalDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
+    });
+
+    it.each([
+      ['missing', undefined],
+      ['blank', ' '],
+      ['not a URL', 'not-a-url'],
+    ])(
+      'should fail on resolve, before an adapter is created, when DATABASE_URL is %s',
+      (_label, databaseUrl) => {
+        if (databaseUrl === undefined) {
+          delete process.env.DATABASE_URL;
+        } else {
+          process.env.DATABASE_URL = databaseUrl;
+        }
+        const adapterConnect = jest.spyOn(ActualPrismaPg.prototype, 'connect');
+
+        expect(() => container.resolve(ContainerTokens.PRISMA)).toThrow(
+          expect.objectContaining({ name: 'DatabaseConfigurationError' }),
+        );
+        expect(PrismaPg).not.toHaveBeenCalled();
+        expect(adapterConnect).not.toHaveBeenCalled();
+      },
+    );
+
+    it('should build the adapter from DATABASE_URL and the pool settings', () => {
+      process.env.DATABASE_URL =
+        'postgresql://app:secret@db.invalid:5432/app_db?schema=tenant_b';
+      const configured = getTestContainer();
+      configured.register(
+        ContainerTokens.ENVIRONMENT,
+        asValue(
+          getEnvironmentServiceMock(
+            {
+              appEnv: Environment.PRODUCTION,
+              databasePoolMax: 7,
+              databaseConnectionTimeoutMs: 2500,
+            },
+            process.env.DATABASE_URL,
+          ),
+        ),
+      );
+      configured.register(
+        ContainerTokens.PRISMA_CONFIG,
+        asClass(PrismaConfig).singleton(),
+      );
+      configured.register(
+        ContainerTokens.PRISMA,
+        asClass(PrismaService).singleton(),
+      );
+
+      configured.resolve(ContainerTokens.PRISMA);
+
+      expect(PrismaPg).toHaveBeenCalledWith(
+        {
+          connectionString:
+            'postgresql://app:secret@db.invalid:5432/app_db?schema=tenant_b',
+          max: 7,
+          connectionTimeoutMillis: 2500,
+        },
+        { schema: 'tenant_b' },
+      );
+    });
+
+    it('should defer certificate file checks until connect', async () => {
+      process.env.DATABASE_URL =
+        UNUSED_DATABASE_URL + '&sslrootcert=/missing/fixture-ca.pem';
+      const prisma = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+      await expect(prisma.connect()).rejects.toThrow(
+        'DATABASE_URL sslrootcert does not point to a readable file.',
+      );
+    });
+
+    it('should create the Client when DATABASE_URL is valid', () => {
+      process.env.DATABASE_URL = UNUSED_DATABASE_URL;
+      // Prisma Client constructors return their own object (Prisma 6 and 7),
+      // so `instanceof PrismaService` is false; check the contract instead.
+      const prisma = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+      expect(prisma.constructor).toBe(PrismaService);
+      expect(typeof prisma.log.findMany).toBe('function');
+    });
+  });
+
+  describe('dependency injection', () => {
+    beforeEach(() => {
+      container.register(
+        ContainerTokens.PRISMA_CONFIG,
+        asValue(prismaConfigMock()),
+      );
+      const [token, resolver] = makeContainerRegistration(
+        ContainerTokens.PRISMA,
+        PrismaService,
+        InjectionResolverMode.SINGLETON,
+      );
+      container.register(token, resolver);
+    });
+
+    it('should share one Client (and pool) across resolves and request scopes', () => {
+      const fromRoot = container.resolve<PrismaService>(ContainerTokens.PRISMA);
+      const scope = container.createScope();
+      const fromScope = scope.resolve<PrismaService>(ContainerTokens.PRISMA);
+      const fromOtherScope = container
+        .createScope()
+        .resolve<PrismaService>(ContainerTokens.PRISMA);
+
+      expect(fromRoot).toBe(container.resolve(ContainerTokens.PRISMA));
+      expect(fromScope).toBe(fromRoot);
+      expect(fromOtherScope).toBe(fromRoot);
+    });
+
+    it('should let tests override the production registration with a fake', () => {
+      const fake: IDBService = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        disconnect: jest.fn().mockResolvedValue(undefined),
+      };
+      // Same registration as globalDIConfigs, then a test override.
+      container.register(ContainerTokens.PRISMA, asValue(fake));
+
+      // CLASSIC injection: the constructor parameter name is the token.
+      class Consumer {
+        constructor(readonly prisma: IDBService) {}
+      }
+      container.register('consumer', asClass(Consumer).scoped());
+      const scope = container.createScope();
+
+      expect(scope.resolve<Consumer>('consumer').prisma).toBe(fake);
+      expect(scope.resolve(ContainerTokens.PRISMA)).toBe(fake);
+      expect(PrismaPg).not.toHaveBeenCalled();
+    });
+  });
+
+  it('should not require DATABASE_URL for environments that never resolve the Client', () => {
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      const testContainer = getTestContainer();
+      testContainer.register(
+        ContainerTokens.PRISMA_CONFIG,
+        asClass(PrismaConfig).singleton(),
+      );
+      testContainer.register(
+        ContainerTokens.PRISMA,
+        asClass(PrismaService).singleton(),
+      );
+      expect(
+        testContainer.resolve<PrismaConfig>(ContainerTokens.PRISMA_CONFIG)
+          .appEnv,
+      ).toBe(Environment.DEVELOPMENT);
+    } finally {
+      if (originalDatabaseUrl !== undefined) {
+        process.env.DATABASE_URL = originalDatabaseUrl;
+      }
+    }
   });
 });

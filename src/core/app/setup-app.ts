@@ -36,6 +36,7 @@ function registerContainers(
         containerTokens,
         globalContainerConfig.service,
         globalContainerConfig.mode,
+        globalContainerConfig.onDispose,
       ),
   );
 

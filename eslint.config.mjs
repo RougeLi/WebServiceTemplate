@@ -5,17 +5,25 @@ import importPlugin from 'eslint-plugin-import';
 
 export default [
   {
+    // Prisma Client output of `prisma generate`; not hand-written code.
+    ignores: ['src/generated/**'],
+  },
+  {
     files: [
       'src/**/*.ts',
       'src/**/*.js',
       'test-utils/**/*.ts',
       'test-utils/**/*.js',
       'index.ts',
+      'prisma.config.ts',
+      'prisma/**/*.ts',
     ],
     languageOptions: {
       parser,
       parserOptions: {
-        project: './tsconfig.eslint.json',
+        // The Prisma CLI config and seed are only in the spec type-check
+        // project; they are not part of the build.
+        project: ['./tsconfig.eslint.json', './tsconfig.typecheck-spec.json'],
       },
       ecmaVersion: 2024,
       sourceType: 'module',

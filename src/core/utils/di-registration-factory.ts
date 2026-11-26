@@ -1,4 +1,4 @@
-import { asClass } from 'awilix';
+import { asClass, BuildResolver, DisposableResolver, Disposer } from 'awilix';
 import { ContainerTokens, InjectionResolverMode } from 'src/core/constants';
 import {
   ClassType,
@@ -36,16 +36,30 @@ export function makeDependencyRegistration(
  * Creates a ContainerRegistration tuple specifically for registering a container's services
  * in the DI container based on the provided injection mode.
  * This function reuses makeDependencyRegistration and ensures the return type aligns with
- * the ContainerRegistration tuple format.
+ * the ContainerRegistration tuple format. An optional disposer is attached with Awilix's
+ * `.disposer()`, so `container.dispose()` releases resolved singleton/scoped instances.
  */
 export function makeContainerRegistration(
   token: ContainerTokens,
   classType: ClassType,
   injectionMode: InjectionResolverMode,
+  disposer?: Disposer<object>,
 ): ContainerRegistration {
-  return makeDependencyRegistration(
+  const registration = makeDependencyRegistration(
     token,
     classType,
     injectionMode,
   ) as ContainerRegistration;
+
+  if (!disposer) {
+    return registration;
+  }
+
+  const [registrationToken, resolver] = registration;
+  return [
+    registrationToken,
+    (resolver as BuildResolver<object> & DisposableResolver<object>).disposer(
+      disposer,
+    ),
+  ];
 }

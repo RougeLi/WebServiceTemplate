@@ -7,20 +7,39 @@ import { serviceInitializerPool } from 'src/core/utils';
 import modules from 'src/modules';
 
 (async () => {
-  // Create and configure the application instance
-  const app = await setupApp(globalDIConfigs, modules);
+  let app: Awaited<ReturnType<typeof setupApp>> | undefined;
+  try {
+    // Create and configure the application instance
+    app = await setupApp(globalDIConfigs, modules);
 
-  // Register the web server module to handle HTTP requests
-  app.registerStartupModule(new WebServerModule());
+    // Register the web server module to handle HTTP requests
+    app.registerStartupModule(new WebServerModule());
 
-  // Initialize the application and all registered modules
-  await app.initialize();
+    // Initialize the application and all registered modules
+    await app.initialize();
 
-  // Initialize dependent resource services for the ticketing system
-  await serviceInitializerPool.initializeAll();
+    await serviceInitializerPool.initializeAll();
 
-  // Start the application and begin accepting requests
-  await app.start();
+    // Start the application and begin accepting requests
+    await app.start();
+  } catch (error) {
+    // Report the original startup error first; cleanup errors are logged
+    // separately and never replace it.
+    console.error('APP startup failed:', error);
+    if (app) {
+      try {
+        // Closes the web server, which disposes the container and releases
+        // resources such as the Prisma Client and its pool.
+        await app.stop();
+      } catch (cleanupError) {
+        console.error(
+          'APP cleanup after startup failure failed:',
+          cleanupError,
+        );
+      }
+    }
+    process.exit(1);
+  }
 
   // Handle a graceful shutdown
   closeWithGrace(async ({ signal, err }) => {

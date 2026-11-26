@@ -93,6 +93,41 @@ describe('DI Registration Factory', () => {
   });
 
   describe('makeContainerRegistration', () => {
+    it('should attach the disposer to the resolver when one is given', () => {
+      const resolverWithDisposer = { disposable: true };
+      const disposerMethod = jest.fn().mockReturnValue(resolverWithDisposer);
+      (asClass(AnotherService).singleton as jest.Mock).mockReturnValueOnce({
+        disposer: disposerMethod,
+      });
+      const dispose = jest.fn();
+
+      const result = makeContainerRegistration(
+        ContainerTokens.PRISMA,
+        AnotherService,
+        InjectionResolverMode.SINGLETON,
+        dispose,
+      );
+
+      expect(disposerMethod).toHaveBeenCalledWith(dispose);
+      expect(result).toEqual([ContainerTokens.PRISMA, resolverWithDisposer]);
+    });
+
+    it('should keep the resolver unchanged without a disposer', () => {
+      const resolver = { disposer: jest.fn() };
+      (asClass(AnotherService).singleton as jest.Mock).mockReturnValueOnce(
+        resolver,
+      );
+
+      const result = makeContainerRegistration(
+        ContainerTokens.PRISMA,
+        AnotherService,
+        InjectionResolverMode.SINGLETON,
+      );
+
+      expect(result).toEqual([ContainerTokens.PRISMA, resolver]);
+      expect(resolver.disposer).not.toHaveBeenCalled();
+    });
+
     it('should create a singleton container registration', () => {
       const result = makeContainerRegistration(
         ContainerTokens.LOGGER,

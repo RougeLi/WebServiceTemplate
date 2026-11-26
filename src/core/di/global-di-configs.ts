@@ -36,10 +36,17 @@ const globalDIConfigs: GlobalContainerConfigEntries = [
     globalContainerConfig: {
       service: Services.PrismaService,
       mode: InjectionResolverMode.SINGLETON,
+      // A database that is not ready stops startup instead of being logged.
+      required: true,
       onInitiate: async (container: AppContainer) => {
         await container
           .resolve<Services.PrismaService>(ContainerTokens.PRISMA)
           .connect();
+      },
+      // The singleton's disposer is the only owner of the Client and its pool;
+      // container.dispose() (Fastify close) runs it once.
+      onDispose: async (prisma: Services.PrismaService) => {
+        await prisma.disconnect();
       },
     },
   },
