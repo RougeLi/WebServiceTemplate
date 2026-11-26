@@ -23,8 +23,8 @@ export function getLastSearchParam(url: URL, name: string): string | undefined {
  * The message never contains the connection string.
  */
 export class DatabaseConfigurationError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'DatabaseConfigurationError';
   }
 }

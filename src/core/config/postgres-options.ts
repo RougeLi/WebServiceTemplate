@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createSecureContext, type SecureContextOptions } from 'node:tls';
 import type { ParsedDatabaseUrl } from 'src/core/types';
 import {
   DatabaseConfigurationError,
@@ -100,13 +101,32 @@ export function checkDatabaseTlsOptions(connectionString: string): void {
       'DATABASE_URL sslmode=verify-ca with libpq compatibility requires sslrootcert.',
     );
   }
-  // pg reads these files while connecting and would fail every retry with
-  // ENOENT, an error without a driver adapter kind; reject them up front.
+  // pg reads the files even when TLS is disabled. If TLS is enabled, check
+  // client key material before pg opens its socket for the SSL handshake.
+  const context: SecureContextOptions = {};
   for (const name of CERTIFICATE_URL_PARAMETERS) {
     const path = getLastSearchParam(url, name);
-    if (path && !isReadableFile(path)) {
+    if (!path) {
+      continue;
+    }
+    if (!isReadableFile(path)) {
       throw new DatabaseConfigurationError(
         `DATABASE_URL ${name} does not point to a readable file.`,
+      );
+    }
+    if (mode !== 'disable' && (name === 'sslcert' || name === 'sslkey')) {
+      const key = name === 'sslcert' ? 'cert' : 'key';
+      context[key] = fs.readFileSync(path);
+    }
+  }
+
+  if (context.key || context.cert) {
+    try {
+      createSecureContext(context);
+    } catch (cause) {
+      throw new DatabaseConfigurationError(
+        'Invalid PostgreSQL client TLS certificate or private key.',
+        { cause },
       );
     }
   }
