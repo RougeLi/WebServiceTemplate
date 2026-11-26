@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { defineConfig } from 'prisma/config';
+import { parseDatabaseTarget } from './src/core/config/database-url';
 
 /**
  * Prisma CLI configuration (generate / migrate / seed).
@@ -20,5 +21,7 @@ export default defineConfig({
     path: 'prisma/migrations',
     seed: 'ts-node prisma/seed.ts',
   },
-  ...(databaseUrl ? { datasource: { url: databaseUrl } } : {}),
+  ...(databaseUrl
+    ? { datasource: { url: parseDatabaseTarget(databaseUrl).connectionString } }
+    : {}),
 });

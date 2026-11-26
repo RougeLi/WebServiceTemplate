@@ -36,6 +36,7 @@ export const EnvironmentSchema = z.object({
   PRISMA_QUERY_MAX_STR_LEN: z.optional(z.number()),
   PRISMA_QUERY_ENABLE_JSON_PARSE: booleanOptionalDefaultFalse,
   PRISMA_QUERY_DELIMITER: z.optional(z.string()),
+  DATABASE_URL: z.string().optional(),
   DATABASE_POOL_MAX: positiveIntegerStringOptional(Number.MAX_SAFE_INTEGER),
   DATABASE_CONNECTION_TIMEOUT_MS:
     positiveIntegerStringOptional(MAX_TIMER_DELAY_MS),

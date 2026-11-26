@@ -4,6 +4,7 @@ import { getEnvironmentServiceMock } from 'test-utils/mocks';
 import { ContainerTokens, Environment } from 'src/core/constants';
 import { DatabaseConfigurationError } from 'src/core/utils/db-utils';
 import { AppConfigType } from '../../types';
+import EnvironmentService from '../environment.service';
 import PrismaConfig, {
   DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS,
   DEFAULT_DATABASE_POOL_MAX,
@@ -237,7 +238,9 @@ describe('PrismaConfig', () => {
     it('should build the PrismaPg pool config from DATABASE_URL', () => {
       process.env.DATABASE_URL =
         ' postgresql://app:secret@db.example.com:5432/app_db ';
-      expect(prismaConfig.getDatabaseConnectionOptions()).toEqual({
+      const config = new PrismaConfig(new EnvironmentService());
+      process.env.DATABASE_URL = 'postgresql://other.invalid/changed';
+      expect(config.getDatabaseConnectionOptions()).toEqual({
         poolConfig: {
           connectionString:
             'postgresql://app:secret@db.example.com:5432/app_db',
@@ -279,7 +282,7 @@ describe('PrismaConfig', () => {
         'postgresql://app@db/app_db?schema=tenant_a&options=-c%20search_path%3Dpublic',
       );
       expect(options.warnings).toEqual([
-        expect.stringContaining('options=-c%20search_path%3D<schema>'),
+        expect.stringContaining('Qualify table names'),
       ]);
     });
 
@@ -307,7 +310,8 @@ describe('PrismaConfig', () => {
         } else {
           process.env.DATABASE_URL = databaseUrl;
         }
-        expect(() => prismaConfig.getDatabaseConnectionOptions()).toThrow(
+        const config = new PrismaConfig(new EnvironmentService());
+        expect(() => config.getDatabaseConnectionOptions()).toThrow(
           DatabaseConfigurationError,
         );
       },

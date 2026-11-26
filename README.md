@@ -225,8 +225,8 @@ a singleton under `ContainerTokens.PRISMA`. When it is resolved,
 builds a `PrismaPg` adapter:
 
 - `DATABASE_URL` must be non-empty after trimming, parse as a URL, use the
-  `postgresql:` or `postgres:` scheme and include a host (or a `host` query
-  parameter), including the last value of a repeated host parameter. Otherwise a `DatabaseConfigurationError` is thrown whose
+  `postgresql:` or `postgres:` scheme and include a hostname or a nonempty effective `host` parameter.
+  pg uses the last value of repeated parameters. An invalid target raises a `DatabaseConfigurationError` whose
   message never contains the URL or the path. pg itself would silently fall
   back to `localhost:5432` for an empty URL, and would parse a value such as
   `not-a-url` relative to a dummy URL and connect to an unintended host.
