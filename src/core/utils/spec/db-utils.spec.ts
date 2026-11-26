@@ -557,6 +557,18 @@ describe('DbUtils', () => {
   });
 
   describe('isFailFastConnectionError', () => {
+    it('should recognize local OpenSSL key errors without a driver kind', () => {
+      const error = Object.assign(new Error('could not decode the test key'), {
+        code: 'ERR_OSSL_UNSUPPORTED',
+      });
+      expect(isFailFastConnectionError(error)).toBe(true);
+      expect(
+        isFailFastConnectionError(
+          Object.assign(new Error('socket closed'), { code: 'ECONNRESET' }),
+        ),
+      ).toBe(false);
+    });
+
     it.each([
       'AuthenticationFailed',
       'DatabaseDoesNotExist',

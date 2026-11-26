@@ -306,7 +306,7 @@ model queries as `P1000`, `P1001`, `P1003`).
 
 | Classification | Errors |
 | --- | --- |
-| Fail fast (no retry) | `AuthenticationFailed`, `DatabaseDoesNotExist`, `DatabaseAccessDenied`, `TlsConnectionError`, `DatabaseConfigurationError`, a revoked `CONNECT` privilege (kind `postgres`, SQLSTATE `42501`), a missing password (pg: `client password must be a string`) |
+| Fail fast (no retry) | `AuthenticationFailed`, `DatabaseDoesNotExist`, `DatabaseAccessDenied`, `TlsConnectionError`, `DatabaseConfigurationError`, a revoked `CONNECT` privilege (kind `postgres`, SQLSTATE `42501`), local OpenSSL key decoding or certificate/key mismatch errors, a missing password (pg: `client password must be a string`) |
 | Retry | `DatabaseNotReachable`, `SocketTimeout`, `ConnectionClosed`, `TooManyConnections`, errors without a `kind` (such as the pg connection timeout), and any other `kind` |
 
 Retries keep the previous semantics: unlimited attempts, waiting

@@ -12,6 +12,14 @@ const FAIL_FAST_DRIVER_ADAPTER_ERROR_KINDS = new Set([
   'TlsConnectionError',
 ]);
 
+// Node preserves these configuration errors on the outer Prisma error when
+// it cannot load the local TLS key or certificate. No driver kind is present.
+const TLS_KEY_CONFIGURATION_CODES = new Set([
+  'ERR_OSSL_UNSUPPORTED',
+  'ERR_OSSL_PEM_NO_START_LINE',
+  'ERR_OSSL_X509_KEY_VALUES_MISMATCH',
+]);
+
 /**
  * SQLSTATE 42501 (insufficient_privilege). On the readiness query it means
  * the role lacks CONNECT on the database; the adapter reports it as the
@@ -73,8 +81,12 @@ export function isFailFastConnectionError(error: unknown): boolean {
     );
   }
 
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const code = (error as NodeJS.ErrnoException).code;
   return (
-    error instanceof Error &&
+    (code !== undefined && TLS_KEY_CONFIGURATION_CODES.has(code)) ||
     error.message.includes(MISSING_PASSWORD_ERROR_MESSAGE)
   );
 }
