@@ -50,6 +50,13 @@ const FAIL_FAST_DRIVER_ADAPTER_ERROR_KINDS = new Set([
 ]);
 
 /**
+ * SQLSTATE 42501 (insufficient_privilege). On the readiness query it means
+ * the role lacks CONNECT on the database; the adapter reports it as the
+ * generic `postgres` kind rather than `DatabaseAccessDenied` (28000).
+ */
+const INSUFFICIENT_PRIVILEGE_SQLSTATE = '42501';
+
+/**
  * pg rejects a missing password with a plain Error (no SQLSTATE, so no
  * driver adapter `kind`) when the server asks for SCRAM authentication.
  */
@@ -70,9 +77,9 @@ export class DatabaseConfigurationError extends Error {
  * Validates DATABASE_URL before a driver adapter is created.
  *
  * pg silently falls back to its defaults (localhost:5432 and the OS user)
- * when the connection string is undefined, empty or has no host, and
- * resolves a non-URL value as a host name. This check fails first, without
- * echoing the URL.
+ * when the connection string is undefined, empty or has no host, and parses
+ * a non-URL value such as `not-a-url` relative to a dummy URL, connecting to
+ * an unintended host. This check fails first, without echoing the URL.
  */
 export function parseDatabaseUrl(
   databaseUrl: string | undefined,
@@ -104,7 +111,39 @@ export function parseDatabaseUrl(
     url.searchParams.has(name),
   );
 
-  return { connectionString, schema, ignoredParameters };
+  return {
+    connectionString,
+    schema,
+    ignoredParameters,
+    hasOptionsParameter: url.searchParams.has('options'),
+  };
+}
+
+/**
+ * Builds the pg `options` startup parameter that sets `search_path` to
+ * `schema`, the equivalent of Prisma 6's per-connection
+ * `SET search_path = "<schema>"`. The identifier is double-quoted, and
+ * backslashes and whitespace are escaped for the server's option parser.
+ */
+export function buildSearchPathOption(schema: string): string {
+  const quoted = `"${schema.replaceAll('"', '""')}"`;
+  return `-c search_path=${quoted.replaceAll(/[\\\s]/g, (char) => `\\${char}`)}`;
+}
+
+type DriverAdapterErrorCause = {
+  kind?: unknown;
+  code?: unknown;
+  originalCode?: unknown;
+};
+
+function getDriverAdapterErrorCause(
+  error: unknown,
+): DriverAdapterErrorCause | undefined {
+  return (
+    error as {
+      meta?: { driverAdapterError?: { cause?: DriverAdapterErrorCause } };
+    } | null
+  )?.meta?.driverAdapterError?.cause;
 }
 
 /**
@@ -112,20 +151,17 @@ export function parseDatabaseUrl(
  * classification of a database error, or undefined for other errors.
  */
 export function getDriverAdapterErrorKind(error: unknown): string | undefined {
-  const kind = (
-    error as {
-      meta?: { driverAdapterError?: { cause?: { kind?: unknown } } };
-    } | null
-  )?.meta?.driverAdapterError?.cause?.kind;
+  const kind = getDriverAdapterErrorCause(error)?.kind;
   return typeof kind === 'string' ? kind : undefined;
 }
 
 /**
  * Whether a readiness failure must stop startup instead of being retried:
- * configuration errors, authentication / access / TLS failures, a missing
- * database and a missing password. Everything else (unreachable host,
- * socket timeout, closed connection, too many connections, plain errors such
- * as the pg connection timeout) is treated as temporary.
+ * configuration errors, authentication / access / TLS failures (including a
+ * revoked CONNECT privilege, SQLSTATE 42501), a missing database and a
+ * missing password. Everything else (unreachable host, socket timeout, closed
+ * connection, too many connections, plain errors such as the pg connection
+ * timeout) is treated as temporary.
  */
 export function isFailFastConnectionError(error: unknown): boolean {
   if (error instanceof DatabaseConfigurationError) {
@@ -134,7 +170,12 @@ export function isFailFastConnectionError(error: unknown): boolean {
 
   const kind = getDriverAdapterErrorKind(error);
   if (kind !== undefined) {
-    return FAIL_FAST_DRIVER_ADAPTER_ERROR_KINDS.has(kind);
+    return (
+      FAIL_FAST_DRIVER_ADAPTER_ERROR_KINDS.has(kind) ||
+      (kind === 'postgres' &&
+        getDriverAdapterErrorCause(error)?.code ===
+          INSUFFICIENT_PRIVILEGE_SQLSTATE)
+    );
   }
 
   return (
@@ -146,7 +187,10 @@ export function isFailFastConnectionError(error: unknown): boolean {
 function describeConnectionError(error: unknown): string {
   const kind = getDriverAdapterErrorKind(error);
   if (kind !== undefined) {
-    return kind;
+    const code = getDriverAdapterErrorCause(error)?.code;
+    return kind === 'postgres' && typeof code === 'string'
+      ? `${kind} ${code}`
+      : kind;
   }
   return error instanceof Error ? error.name : typeof error;
 }
@@ -322,6 +366,7 @@ const DbUtils = {
   getConnectMethod,
   getDisconnectMethod,
   parseDatabaseUrl,
+  buildSearchPathOption,
   getDriverAdapterErrorKind,
   isFailFastConnectionError,
 };

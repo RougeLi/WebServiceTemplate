@@ -16,14 +16,11 @@ function createClientOptions(
   logger: LoggerService,
   prismaConfig: PrismaConfigService,
 ) {
-  const { poolConfig, adapterOptions, ignoredUrlParameters } =
+  const { poolConfig, adapterOptions, warnings } =
     prismaConfig.getDatabaseConnectionOptions();
 
-  if (ignoredUrlParameters.length > 0) {
-    logger.warn(
-      `DATABASE_URL contains Prisma 6 parameters that the PostgreSQL driver adapter ignores: ${ignoredUrlParameters.join(', ')}. ` +
-        'Use DATABASE_POOL_MAX and DATABASE_CONNECTION_TIMEOUT_MS to configure the pool.',
-    );
+  for (const warning of warnings) {
+    logger.warn(warning);
   }
 
   return {

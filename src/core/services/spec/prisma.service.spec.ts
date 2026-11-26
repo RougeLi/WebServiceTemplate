@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { asClass, asValue, AwilixContainer } from 'awilix';
 import { getTestContainer } from 'test-utils/containers';
+import { getEnvironmentServiceMock } from 'test-utils/mocks';
 import {
   ContainerTokens,
   Environment,
@@ -11,6 +12,22 @@ import { DatabaseConnectionOptions, IDBService } from 'src/core/types';
 import { DbUtils, makeContainerRegistration } from 'src/core/utils';
 import PrismaConfig from '../prisma.config';
 import PrismaService from '../prisma.service';
+
+// Wrap the real PrismaPg so tests can see the constructor arguments.
+jest.mock('@prisma/adapter-pg', () => {
+  const actual = jest.requireActual('@prisma/adapter-pg');
+  return {
+    ...actual,
+    __esModule: true,
+    PrismaPg: jest.fn(
+      (...args: ConstructorParameters<typeof actual.PrismaPg>) =>
+        new actual.PrismaPg(...args),
+    ),
+  };
+});
+
+const { PrismaPg: ActualPrismaPg } =
+  jest.requireActual<typeof import('@prisma/adapter-pg')>('@prisma/adapter-pg');
 
 jest.mock('src/core/utils/db-utils', () => {
   const actual = jest.requireActual('src/core/utils/db-utils');
@@ -39,9 +56,11 @@ function connectionOptions(
       connectionString: UNUSED_DATABASE_URL,
       max: 4,
       connectionTimeoutMillis: 1500,
+      options: '-c search_path="tenant_a"',
     },
     adapterOptions: { schema: 'tenant_a' },
     ignoredUrlParameters: [],
+    warnings: [],
     ...overrides,
   };
 }
@@ -67,6 +86,7 @@ function prismaConfigMock(options = connectionOptions()) {
 }
 
 describe('PrismaService', () => {
+  const originalDatabaseUrl = process.env.DATABASE_URL;
   let container: AwilixContainer;
 
   beforeEach(() => {
@@ -74,6 +94,11 @@ describe('PrismaService', () => {
   });
 
   afterEach(async () => {
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
     await container.dispose();
     jest.restoreAllMocks();
     jest.clearAllMocks();
@@ -108,6 +133,31 @@ describe('PrismaService', () => {
     );
   });
 
+  it('should pass the pool size, timeout, search_path and schema to PrismaPg', () => {
+    const options = connectionOptions();
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asValue(prismaConfigMock(options)),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+
+    container.resolve(ContainerTokens.PRISMA);
+
+    expect(PrismaPg).toHaveBeenCalledTimes(1);
+    expect(PrismaPg).toHaveBeenCalledWith(
+      {
+        connectionString: UNUSED_DATABASE_URL,
+        max: 4,
+        connectionTimeoutMillis: 1500,
+        options: '-c search_path="tenant_a"',
+      },
+      { schema: 'tenant_a' },
+    );
+  });
+
   it('should keep the Prisma Client API for consumers', () => {
     container.register(
       ContainerTokens.PRISMA_CONFIG,
@@ -126,7 +176,7 @@ describe('PrismaService', () => {
   });
 
   it('should not open a database connection when the Client is created', () => {
-    const adapterConnect = jest.spyOn(PrismaPg.prototype, 'connect');
+    const adapterConnect = jest.spyOn(ActualPrismaPg.prototype, 'connect');
     container.register(
       ContainerTokens.PRISMA_CONFIG,
       asValue(prismaConfigMock()),
@@ -141,16 +191,35 @@ describe('PrismaService', () => {
     expect(adapterConnect).not.toHaveBeenCalled();
   });
 
-  it('should warn about ignored Prisma 6 URL parameters without logging the URL', () => {
+  it('should log each connection warning from PrismaConfig', () => {
     container.register(
       ContainerTokens.PRISMA_CONFIG,
       asValue(
         prismaConfigMock(
           connectionOptions({
-            ignoredUrlParameters: ['connection_limit', 'pool_timeout'],
+            warnings: ['first warning', 'second warning'],
           }),
         ),
       ),
+    );
+    container.register(
+      ContainerTokens.PRISMA,
+      asClass(PrismaService).singleton(),
+    );
+    const logger = container.resolve<LoggerService>(ContainerTokens.LOGGER);
+    const warn = jest.spyOn(logger, 'warn');
+
+    container.resolve(ContainerTokens.PRISMA);
+
+    expect(warn.mock.calls).toEqual([['first warning'], ['second warning']]);
+  });
+
+  it('should warn about ignored Prisma 6 URL parameters without logging the URL', () => {
+    process.env.DATABASE_URL =
+      'postgresql://app:secret@db.invalid:5432/app_db?connection_limit=1&pool_timeout=5';
+    container.register(
+      ContainerTokens.PRISMA_CONFIG,
+      asClass(PrismaConfig).singleton(),
     );
     container.register(
       ContainerTokens.PRISMA,
@@ -220,14 +289,52 @@ describe('PrismaService', () => {
         } else {
           process.env.DATABASE_URL = databaseUrl;
         }
-        const adapterConnect = jest.spyOn(PrismaPg.prototype, 'connect');
+        const adapterConnect = jest.spyOn(ActualPrismaPg.prototype, 'connect');
 
         expect(() => container.resolve(ContainerTokens.PRISMA)).toThrow(
           expect.objectContaining({ name: 'DatabaseConfigurationError' }),
         );
+        expect(PrismaPg).not.toHaveBeenCalled();
         expect(adapterConnect).not.toHaveBeenCalled();
       },
     );
+
+    it('should build the adapter from DATABASE_URL and the pool settings', () => {
+      process.env.DATABASE_URL =
+        'postgresql://app:secret@db.invalid:5432/app_db?schema=tenant_b';
+      const configured = getTestContainer();
+      configured.register(
+        ContainerTokens.ENVIRONMENT,
+        asValue(
+          getEnvironmentServiceMock({
+            appEnv: Environment.PRODUCTION,
+            databasePoolMax: 7,
+            databaseConnectionTimeoutMs: 2500,
+          }),
+        ),
+      );
+      configured.register(
+        ContainerTokens.PRISMA_CONFIG,
+        asClass(PrismaConfig).singleton(),
+      );
+      configured.register(
+        ContainerTokens.PRISMA,
+        asClass(PrismaService).singleton(),
+      );
+
+      configured.resolve(ContainerTokens.PRISMA);
+
+      expect(PrismaPg).toHaveBeenCalledWith(
+        {
+          connectionString:
+            'postgresql://app:secret@db.invalid:5432/app_db?schema=tenant_b',
+          max: 7,
+          connectionTimeoutMillis: 2500,
+          options: '-c search_path="tenant_b"',
+        },
+        { schema: 'tenant_b' },
+      );
+    });
 
     it('should create the Client when DATABASE_URL is valid', () => {
       process.env.DATABASE_URL = UNUSED_DATABASE_URL;

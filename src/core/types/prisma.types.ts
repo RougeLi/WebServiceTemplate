@@ -57,6 +57,8 @@ export type ParsedDatabaseUrl = {
   schema?: string;
   /** Prisma 6 URL parameters that the pg driver does not apply. */
   ignoredParameters: string[];
+  /** Whether the URL sets pg's `options` parameter. */
+  hasOptionsParameter: boolean;
 };
 
 /**
@@ -67,6 +69,11 @@ export type PrismaPgPoolConfig = {
   connectionString: string;
   max: number;
   connectionTimeoutMillis: number;
+  /**
+   * Server startup options. Set to `-c search_path=<schema>` for `?schema=`
+   * so raw SQL resolves unqualified names in that schema, as with Prisma 6.
+   */
+  options?: string;
 };
 
 export type PrismaPgAdapterOptions = {
@@ -77,4 +84,6 @@ export type DatabaseConnectionOptions = {
   poolConfig: PrismaPgPoolConfig;
   adapterOptions: PrismaPgAdapterOptions;
   ignoredUrlParameters: string[];
+  /** Messages to log at warn level; they never contain the URL. */
+  warnings: string[];
 };

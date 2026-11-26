@@ -6,6 +6,7 @@ import {
 } from 'src/core/types';
 import { Prisma } from 'src/generated/prisma/client';
 import DbUtils, {
+  buildSearchPathOption,
   DatabaseConfigurationError,
   formatQueryEvent,
   getDriverAdapterErrorKind,
@@ -21,11 +22,12 @@ import DbUtils, {
 function driverAdapterError(
   kind: string,
   code = 'P2010',
+  cause: Record<string, unknown> = {},
 ): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError(`Raw query failed: ${kind}`, {
     code,
     clientVersion: '7.10.1',
-    meta: { driverAdapterError: { cause: { kind } } },
+    meta: { driverAdapterError: { cause: { kind, ...cause } } },
   });
 }
 
@@ -294,6 +296,7 @@ describe('DbUtils', () => {
         connectionString: url,
         schema: undefined,
         ignoredParameters: [],
+        hasOptionsParameter: false,
       });
     });
 
@@ -317,6 +320,13 @@ describe('DbUtils', () => {
       expect(
         parseDatabaseUrl('postgresql://app@db/app_db?schema=').schema,
       ).toBeUndefined();
+    });
+
+    it('should report whether pg `options` are set in the URL', () => {
+      expect(
+        parseDatabaseUrl('postgresql://app@db/app_db?options=-c%20x%3D1')
+          .hasOptionsParameter,
+      ).toBe(true);
     });
 
     it('should list Prisma 6 parameters that the pg driver ignores', () => {
@@ -371,6 +381,17 @@ describe('DbUtils', () => {
     );
   });
 
+  describe('buildSearchPathOption', () => {
+    it.each([
+      ['tenant_a', '-c search_path="tenant_a"'],
+      ['Tenant A', '-c search_path="Tenant\\ A"'],
+      ['we"ird', '-c search_path="we""ird"'],
+      ['back\\slash', '-c search_path="back\\\\slash"'],
+    ])('should quote %p for the pg options parameter', (schema, expected) => {
+      expect(buildSearchPathOption(schema)).toBe(expected);
+    });
+  });
+
   describe('getDriverAdapterErrorKind', () => {
     it('should read meta.driverAdapterError.cause.kind', () => {
       expect(
@@ -413,6 +434,19 @@ describe('DbUtils', () => {
       'postgres',
     ])('should retry on %s', (kind) => {
       expect(isFailFastConnectionError(driverAdapterError(kind))).toBe(false);
+    });
+
+    it('should fail fast when the CONNECT privilege is revoked (postgres 42501)', () => {
+      expect(
+        isFailFastConnectionError(
+          driverAdapterError('postgres', 'P2010', { code: '42501' }),
+        ),
+      ).toBe(true);
+      expect(
+        isFailFastConnectionError(
+          driverAdapterError('postgres', 'P2010', { code: '57P03' }),
+        ),
+      ).toBe(false);
     });
 
     it('should fail fast on configuration errors', () => {
@@ -600,6 +634,18 @@ describe('DbUtils', () => {
       );
       expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
       expect(setTimeout).not.toHaveBeenCalled();
+    });
+
+    it('should throw without retrying when CONNECT is revoked (postgres 42501)', async () => {
+      const error = driverAdapterError('postgres', 'P2010', { code: '42501' });
+      prismaMock.$connect.mockResolvedValueOnce(undefined);
+      prismaMock.$queryRaw.mockRejectedValueOnce(error);
+
+      await expect(connectMethod()).rejects.toBe(error);
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'Failed to connect to the database (postgres 42501); not retrying.',
+      );
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
     });
 
     it('should throw without retrying when the password is missing', async () => {

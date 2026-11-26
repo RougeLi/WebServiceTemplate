@@ -377,7 +377,17 @@ Web Service Template adopts a modular architecture that separates core framework
 
 `prisma` (devDependency), `@prisma/client` and `@prisma/adapter-pg`
 (dependencies) are pinned to the same exact version, **7.10.1**. Upgrade the
-three packages together, by hand, and rerun the checks below.
+three packages together, by hand: read the Prisma release notes, check the
+Node.js engine, TypeScript and pnpm requirements, then rerun
+
+```bash
+pnpm run install:ci && pnpm run prisma:generate && pnpm run type:check \
+  && pnpm run type:check:spec && pnpm run lint && pnpm run unittest \
+  && pnpm run build
+```
+
+plus a check against a disposable PostgreSQL database (migrations, seed,
+queries, application start and stop).
 `pnpm-workspace.yaml` lists them under `updateConfig.ignoreDependencies`, so
 `pnpm run update:dependencies` (`pnpm update --latest`) leaves them alone;
 without it, `prisma` would move to the `latest` dist-tag (an 8.x release
@@ -453,8 +463,12 @@ compiled with the rest of `src/` by `pnpm run build`.
 
 | Context | Import | Resolves to |
 | --- | --- | --- |
-| Source, tests, `ts-node` | `src/generated/prisma/client` | `src/generated/prisma/client.ts` |
+| Source type-check (`tsc`) and Jest | `src/generated/prisma/client` | `src/generated/prisma/client.ts` |
+| `ts-node` scripts and the seed | `../src/generated/prisma/client` (relative), or the alias with `NODE_PATH=.` | `src/generated/prisma/client.ts` |
 | Compiled (`NODE_PATH=./build`) | `src/generated/prisma/client` | `build/src/generated/prisma/client.js` |
+
+`ts-node` does not apply the `tsconfig.json` `paths` at run time, so a bare
+`src/...` import fails there unless `NODE_PATH=.` is set.
 
 Regenerate after every schema change (`pnpm run prisma:generate`). `pnpm start`
 runs `prisma:generate` before starting the TypeScript and nodemon watchers, but
@@ -475,7 +489,8 @@ builds a `PrismaPg` adapter:
   `postgresql:` or `postgres:` scheme and include a host (or a `host` query
   parameter). Otherwise a `DatabaseConfigurationError` is thrown whose message
   never contains the URL. pg itself would silently fall back to
-  `localhost:5432` for an empty URL and treat `not-a-url` as a host name.
+  `localhost:5432` for an empty URL, and would parse a value such as
+  `not-a-url` relative to a dummy URL and connect to an unintended host.
 - Validation happens on resolve, not on import, registration or
   `EnvironmentService` construction, so unit tests and builds do not need
   `DATABASE_URL`.
@@ -488,7 +503,8 @@ builds a `PrismaPg` adapter:
 | Connect / pool wait timeout | `connect_timeout` (5 s) and `pool_timeout` (10 s) | `DATABASE_CONNECTION_TIMEOUT_MS`, default `10000`, covers both |
 | Timeout error | `P2024` | Plain `Error`: `Connection terminated due to connection timeout` or `timeout exceeded when trying to connect` |
 | Idle connections | engine default | pg default, closed after 10 s idle |
-| `?schema=` | applied by the engine | parsed by the template and passed as `PrismaPg`'s `schema` option |
+| `?schema=` | applied by the engine (`SET search_path`) | parsed by the template: `PrismaPg`'s `schema` option for model queries, plus `-c search_path=<schema>` in pg's `options` for raw SQL |
+| TLS without `sslmode` | `sslmode=prefer` (TLS when the server offers it) | no TLS; set `sslmode` explicitly |
 | Interactive transactions | `maxWait` 2000 ms, `timeout` 5000 ms | unchanged (`P2028` when exceeded) |
 
 pg's own connection timeout default is `0` (wait forever), which would block
@@ -500,15 +516,24 @@ Prisma 6-only URL parameters (`connection_limit`, `pool_timeout`,
 `channel_binding`, `sslaccept`, `sslidentity`, `sslpassword`) are not applied
 by pg. When present, `PrismaService` logs a warning that lists only their
 names. Parameters pg understands (for example `sslmode`, `sslrootcert`,
-`application_name`, `options`) are applied. `?schema=` is honoured by both the
-CLI and the runtime, so they target the same PostgreSQL schema.
+`application_name`, `options`) are applied. `?schema=` is honoured by the CLI
+and, at runtime, by both model queries and raw SQL (`$queryRaw`,
+`$executeRaw`), so they target the same PostgreSQL schema. If the URL also
+sets `options`, the URL value wins in pg; the template then logs a warning and
+`schema` applies to model queries only, so add `-c search_path=<schema>` to
+`options` yourself.
 
 `sslmode` is applied by pg: `sslmode=require` against a server without TLS
 fails with `TlsConnectionError`. pg currently treats `prefer`, `require` and
 `verify-ca` as `verify-full` and prints a security warning that pg 9 will
 switch to libpq semantics; use `sslmode=verify-full` to keep today's behaviour
-explicitly. Never disable certificate verification globally to make a
-connection work.
+explicitly. Without `sslmode` pg does not use TLS at all, whereas Prisma 6
+defaulted to `prefer`; set `sslmode` (with `sslrootcert` for a private CA)
+when the server requires TLS. Certificate parameters also changed meaning:
+Prisma 6's `sslcert` was the server (CA) certificate, while pg reads `sslcert`
+as the client certificate and `sslrootcert` as the CA, and pg resolves the
+paths relative to the working directory instead of `./prisma`. Never disable
+certificate verification globally to make a connection work.
 
 ### Readiness, retries and errors
 
@@ -522,7 +547,7 @@ model queries as `P1000`, `P1001`, `P1003`).
 
 | Classification | Errors |
 | --- | --- |
-| Fail fast (no retry) | `AuthenticationFailed`, `DatabaseDoesNotExist`, `DatabaseAccessDenied`, `TlsConnectionError`, `DatabaseConfigurationError`, a missing password (pg: `client password must be a string`) |
+| Fail fast (no retry) | `AuthenticationFailed`, `DatabaseDoesNotExist`, `DatabaseAccessDenied`, `TlsConnectionError`, `DatabaseConfigurationError`, a revoked `CONNECT` privilege (kind `postgres`, SQLSTATE `42501`), a missing password (pg: `client password must be a string`) |
 | Retry | `DatabaseNotReachable`, `SocketTimeout`, `ConnectionClosed`, `TooManyConnections`, errors without a `kind` (such as the pg connection timeout), and any other `kind` |
 
 Retries keep the previous semantics: unlimited attempts, waiting
@@ -533,8 +558,13 @@ connection string or password.
 
 Startup currently keeps the existing hook contract: a failing `onInitiate`
 hook, including the Prisma connect, is logged and startup continues.
-Making the Prisma hook required and releasing the pool on shutdown is tracked
-in [#35](https://github.com/RougeLi/WebServiceTemplate/issues/35).
+Because the fail-fast errors above now stop the retry loop instead of retrying
+forever (Prisma 6 rethrew only `P1000` / authentication errors), a missing or
+invalid `DATABASE_URL`, a missing database, denied access or a TLS error is
+logged and the HTTP server still starts, where Prisma 6 kept retrying and
+never reached `app.start()`. Making the Prisma hook required, so these errors
+stop startup with a non-zero exit, and releasing the pool on shutdown are
+tracked in [#35](https://github.com/RougeLi/WebServiceTemplate/issues/35).
 
 ### Connection ownership
 
@@ -583,6 +613,9 @@ With Prisma 7.10.1 and `PrismaPg`:
 - Replace Prisma 6 URL parameters with `DATABASE_POOL_MAX` and
   `DATABASE_CONNECTION_TIMEOUT_MS`, and handle the plain timeout `Error`
   instead of `P2024`.
+- Review TLS settings: add `sslmode` where Prisma 6's default `prefer` was
+  relied on, replace Prisma 6 `sslcert=<CA>` with `sslrootcert=<CA>`, and use
+  paths relative to the working directory.
 - `package.json#prisma` was removed; the seed command lives in
   `prisma.config.ts`. `build` now generates before compiling, `start`
   generates first, and `prisma:seed` was added.

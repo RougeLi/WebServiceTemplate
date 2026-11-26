@@ -6,8 +6,12 @@ import {
   PrismaClientOptions,
   PrismaErrorFormat,
   PrismaLogLevels,
+  PrismaPgPoolConfig,
 } from 'src/core/types';
-import { parseDatabaseUrl } from 'src/core/utils/db-utils';
+import {
+  buildSearchPathOption,
+  parseDatabaseUrl,
+} from 'src/core/utils/db-utils';
 import EnvironmentService from './environment.service';
 
 /** pg default pool size (Prisma 6 used CPU count × 2 + 1). */
@@ -92,22 +96,48 @@ export default class PrismaConfig {
    * to be created, not when this config is constructed, so code paths that
    * never resolve the Client (unit tests, build) do not need it.
    *
+   * `?schema=` keeps its Prisma 6 meaning: it is passed as the adapter's
+   * `schema` option (model queries) and, through pg's `options` startup
+   * parameter, as the connection's `search_path` (raw SQL).
+   *
    * @throws DatabaseConfigurationError when DATABASE_URL is missing or invalid.
    */
   getDatabaseConnectionOptions(
     databaseUrl: string | undefined = process.env.DATABASE_URL,
   ): DatabaseConnectionOptions {
-    const { connectionString, schema, ignoredParameters } =
+    const { connectionString, schema, ignoredParameters, hasOptionsParameter } =
       parseDatabaseUrl(databaseUrl);
+    const warnings: string[] = [];
+
+    const poolConfig: PrismaPgPoolConfig = {
+      connectionString,
+      max: this.databasePoolMax,
+      connectionTimeoutMillis: this.databaseConnectionTimeoutMs,
+    };
+
+    if (schema && hasOptionsParameter) {
+      // pg lets the URL's `options` override the pool config, so the
+      // search_path cannot be added without rewriting the URL.
+      warnings.push(
+        'DATABASE_URL sets both `schema` and `options`; `schema` applies to model queries only. ' +
+          'Add `-c search_path=<schema>` to `options` for raw SQL.',
+      );
+    } else if (schema) {
+      poolConfig.options = buildSearchPathOption(schema);
+    }
+
+    if (ignoredParameters.length > 0) {
+      warnings.push(
+        `DATABASE_URL contains Prisma 6 parameters that the PostgreSQL driver adapter ignores: ${ignoredParameters.join(', ')}. ` +
+          'Use DATABASE_POOL_MAX and DATABASE_CONNECTION_TIMEOUT_MS to configure the pool.',
+      );
+    }
 
     return {
-      poolConfig: {
-        connectionString,
-        max: this.databasePoolMax,
-        connectionTimeoutMillis: this.databaseConnectionTimeoutMs,
-      },
+      poolConfig,
       adapterOptions: schema ? { schema } : {},
       ignoredUrlParameters: ignoredParameters,
+      warnings,
     };
   }
 }
