@@ -1,4 +1,8 @@
-import { LoggerService } from 'src/core/services';
+import {
+  EnvironmentService,
+  LoggerService,
+  PrismaConfigService,
+} from 'src/core/services';
 import {
   CustomPrismaClient,
   PrismaLogLevels,
@@ -33,6 +37,43 @@ describe('DbUtils', () => {
   });
 
   describe('setupLogging', () => {
+    it.each([
+      ['500', 500],
+      [undefined, 1000],
+    ] as const)(
+      'should truncate logged parameters with setting %p at %i characters',
+      (setting, length) => {
+        const environment = jest.replaceProperty(process, 'env', {
+          APP_ENV: 'development',
+          PRISMA_QUERY_MAX_STR_LEN: setting,
+        });
+        try {
+          const config = new PrismaConfigService(new EnvironmentService());
+          DbUtils.setupLogging(
+            loggerMock,
+            config.logLevels,
+            config.formatQueryEventOptions,
+            prismaMock,
+          );
+          const [[, onQuery]] = prismaMock.$on.mock.calls;
+          onQuery({
+            timestamp: new Date(),
+            query: 'SELECT $1',
+            params: 'x'.repeat(1200),
+            duration: 1,
+            target: 'db',
+          });
+          expect(loggerMock.debug).toHaveBeenCalledWith(
+            expect.stringContaining(
+              'Params: ' + 'x'.repeat(length) + '... (truncated)',
+            ),
+          );
+        } finally {
+          environment.restore();
+        }
+      },
+    );
+
     it('should setup query logging when log level includes "query"', () => {
       const logLevels: PrismaLogLevels = ['query'];
       DbUtils.setupLogging(
