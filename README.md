@@ -1,12 +1,8 @@
 # Web Service Template
 
-[![Node.js](https://img.shields.io/badge/Node.js-Latest-339933?style=flat&logo=node.js)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
-[![Fastify](https://img.shields.io/badge/Fastify-5.x-000000?style=flat&logo=fastify)](https://www.fastify.io/)
 [![Prisma](https://img.shields.io/badge/Prisma-7.10.1-2D3748?style=flat&logo=prisma)](https://www.prisma.io/)
-[![PNPM](https://img.shields.io/badge/PNPM-Latest-F69220?style=flat&logo=pnpm)](https://pnpm.io)
 
-A foundational template for efficiently developing scalable web service applications.
+A modular backend application foundation with hexagonal-inspired business module conventions. Fastify serves HTTP, Awilix assembles the application and Prisma connects to PostgreSQL. For maintainers and coding agents, the engineering and review rules live in [AGENTS.md](AGENTS.md).
 
 ## 📋 Table of Contents
 
@@ -17,359 +13,102 @@ A foundational template for efficiently developing scalable web service applicat
 - [💻 Development Guide](#-development-guide)
 - [🗄 Database (Prisma 7)](#-database-prisma-7)
 - [⚙️ Environment Variables](#-environment-variables)
-- [📦 Deployment](#-deployment)
 - [🔧 Module Setup Example](#-module-setup-example)
+- [📦 Deployment](#-deployment)
 - [❓ FAQ](#-faq)
-
----
 
 ## 📝 Project Introduction
 
-Web Service Template is a backend service template developed based on the Fastify framework, providing developers with
-an efficient and scalable foundation for web service development.
-
-### Key Features
-
-- **Efficient Development:** Provides a foundational template for developing scalable web services
-- **Modular Design:** Separates core functionalities from business modules for easy maintenance and scalability
-- **Simplified Workflow:** Offers rich script commands to simplify development, testing, and deployment
-- **Enhanced Development Efficiency:** Supports hot reloading and automatic compilation
-- **Integrated Core Functionalities:** Includes built-in dependency injection, configuration management, error handling,
-  and more
-
----
+A fresh checkout starts a web server with a welcome page and an empty business-module registry. Add a business capability by declaring its dependencies in a module and including that module in the application. The [catalog example](#-module-setup-example) shows a complete request and the decision about whether an entry is visible.
 
 ## 🚀 Quick Start
 
-### Prerequisites
+Run the following commands from the repository root. Use the Node.js major in [.nvmrc](.nvmrc) and the pnpm version selected by [CI](.github/workflows/ci.yaml). If you use nvm, `nvm use` selects the project Node version.
 
-- Ensure you have the correct version of Node.js installed (see `.nvmrc` for details)
-- Install [pnpm](https://pnpm.io/) globally:
-
-  ```bash
-  npm install -g pnpm
-  ```
-
-### Installation Steps
-
-1. **Clone the repository and navigate to the project directory**
-
-   ```bash
-   git clone <repository_url>
-   cd <project_directory>
-   ```
-
-2. **Deploy the local development environment**  
-   (See the [Development Guide](#-development-guide) section for details)
-
-3. **Copy the example environment variables file**
+1. In a fresh checkout, copy the local settings.
 
    ```bash
    cp .env.example .env
    ```
 
-4. **Install dependencies**
+2. Set `DATABASE_URL` in your `.env` to a running local PostgreSQL database and confirm it accepts connections.
+
+   The [development Compose file](.dev-app-projects/docker-compose.yaml) pairs `postgres:latest` with the data mount used by PostgreSQL 17 and earlier (`/var/lib/postgresql/data`). For a fresh database using the official PostgreSQL 18 or later image, mount a new data directory at `/var/lib/postgresql` in your local Compose configuration. See the [official image's volume guidance](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata).
+
+3. Install dependencies, generate the Prisma client and build before starting the watchers.
 
    ```bash
-   nvm use  # (Optional: switch to the Node.js version specified in .nvmrc)
    pnpm run install:ci
-   ```
-
-5. **Compile TypeScript files**
-
-   `build` generates the Prisma Client first and then compiles; no database is
-   needed.
-
-   ```bash
    pnpm run build
-   ```
-
-6. **Start the development server**
-
-   `start` also runs `prisma:generate` before the watchers. The server needs a
-   reachable PostgreSQL database (see
-   [Setting Up a Local PostgreSQL Database](#setting-up-a-local-postgresql-database)).
-
-   ```bash
    pnpm start
    ```
 
----
+   The build generates Prisma Client before compiling TypeScript. Run it once to give the server watcher its `build/index.js` entry point.
+
+4. With the example settings, open `http://localhost:3000/` for the welcome page and `http://localhost:3000/docs` for Swagger UI. The UI is enabled in non-production environments.
 
 ## 📂 Project Structure
 
-This project follows a clear separation between core components and business modules:
+### Current checkout
 
-```
-├── README.md
-├── index.ts                # Application entry point
-├── package.json
-├── prisma.config.ts        # Prisma CLI configuration (schema, migrations, seed, datasource URL)
-├── prisma/
-│   ├── schema.prisma       # Prisma schema (generator + models)
-│   ├── migrations/         # Migration history (never rewritten)
-│   └── seed.ts             # Seed entry point (`pnpm run prisma:seed`)
-├── tsconfig.json
-├── tsconfig.eslint.json
-├── eslint.config.mjs
-├── jest.config.js
-├── pnpm-lock.yaml
-├── node_modules/
-├── src/
-│   ├── core/               # Framework core: app initialization, DI, server, config, etc.
-│   │   ├── app/            # Application setup and initialization
-│   │   ├── config/         # Environment and configuration management
-│   │   ├── constants/      # Application-wide constants and enums
-│   │   ├── di/             # Dependency injection setup
-│   │   │   ├── di-container.ts
-│   │   │   ├── global-di-configs.ts  # Global DI configurations (e.g., Logger, Environment, Prisma, etc.)
-│   │   │   ├── on-initiate-executor.ts
-│   │   │   └── index.ts
-│   │   ├── server/         # Web server configuration, routing, and error handling
-│   │   │   ├── bootstrap/  # Server initialization
-│   │   │   ├── modules/    # Startup modules (e.g., WebServerModule)
-│   │   │   └── ...
-│   │   ├── services/       # Core services (e.g., Logger, Environment)
-│   │   ├── types/          # Type definitions and interfaces
-│   │   │   ├── startup-module.types.ts  # IStartupModule interface
-│   │   │   └── ...
-│   │   ├── utils/          # Utility functions and base module classes
-│   │   └── index.ts
-│   ├── generated/prisma/   # Generated Prisma Client (`prisma generate`, not committed)
-│   ├── modules/            # Business modules (each module can be later extracted as an independent package)
-│   │   ├── hello/          # Example Hello module
-│   │   │   ├── constants/
-│   │   │   ├── controllers/
-│   │   │   ├── dto/
-│   │   │   ├── model/
-│   │   │   ├── routes/
-│   │   │   ├── services/
-│   │   │   ├── spec/
-│   │   │   ├── types/
-│   │   │   ├── hello.module.ts  # Module configuration & DI registration
-│   │   │   └── index.ts         # Module exports
-│   │   └── index.ts        # Aggregated module registration
-│   └── index.ts            # (Optional) Additional entry point for src directory if needed
-├── test-utils/             # Testing utilities and mocks
-│   ├── containers/
-│   └── mocks/
-```
+The application builds as a single package. The following paths exist in the repository.
 
-### Core Module (`core`)
+| Path | Responsibility |
+| --- | --- |
+| [index.ts](index.ts) | Composition root. Passes the global registrations and business modules to `setupApp`, registers the HTTP startup module and sequences startup and shutdown. |
+| [src/modules/index.ts](src/modules/index.ts) | Exports the list of business module instances. It starts as an empty array. |
+| [src/core/app](src/core/app) and [src/core/di](src/core/di) | Application lifecycle, container creation and dependency registration. |
+| [src/core/server](src/core/server) | Fastify setup, route registration, HTTP errors and Swagger. |
+| [src/core/config](src/core/config) and [src/core/services](src/core/services) | Environment loading and transformation, logging, and the current concrete Prisma configuration and client. |
+| [src/core/types](src/core/types) and [src/core/utils](src/core/utils) | Module and startup contracts, registration helpers and initializer pool. |
+| [prisma](prisma) | PostgreSQL schema, migrations and seed source. |
+| [test-utils](test-utils) | Test containers, mocks and compile-time contract checks. |
 
-The `core` directory contains the essential framework parts:
+TypeScript resolves `src/*` from the root and emits the application under `build/`. The [global DI registrations](src/core/di/global-di-configs.ts) currently select Prisma in Core.
 
-- **`app/`**: Application initialization and server setup
-- **`config/`**: Environment loading and configuration management
-- **`constants/`**: Definitions for tokens, modes, and other constants
-- **`di/`**: Dependency injection container, including global DI configurations in `global-di-configs.ts`
-- **`server/`**: Fastify server setup, routing, error handling, and Swagger documentation
-- **`services/`**: Core services like Logger, Environment, etc.
-- **`types/`**: Shared TypeScript types and interfaces
-- **`utils/`**: Base classes and helper functions for modules, including the initializer-pool mechanism
+### Target structure
 
-### Modular Startup Process
-
-The application uses a modular startup process that allows different types of services (web server, cron jobs, message
-queue consumers, etc.) to be initialized, started, and stopped in a coordinated way. This is implemented through the
-`IStartupModule` interface:
-
-```typescript
-export interface IStartupModule {
-  readonly name: string;
-
-  initialize(container: AppContainer): Promise<void>;
-
-  start(): Promise<void>;
-
-  stop(): Promise<void>;
-}
-```
-
-#### Built-in Startup Modules
-
-- **WebServerModule**: Initializes and starts the Fastify web server. This module is registered by default.
-
-#### Registering a Startup Module
-
-To register a startup module:
-
-```typescript
-import { setupApp } from 'src/core/app';
-import { CronJobModule } from 'src/core';
-import { globalDIConfigs } from 'src/core/di';
-import { WebServerModule } from 'src/core/server';
-import modules from 'src/modules';
-
-(async () => {
-  const app = await setupApp(globalDIConfigs, modules);
-
-  // Register a default startup module
-  app.registerStartupModule(new WebServerModule());
-
-  await app.initialize();
-  await app.start();
-})();
-```
-
-For more details, see the [Startup Modules documentation](src/core/types/README.md).
-
-### Initializer Pool Mechanism
-
-The application includes an Initializer Pool utility that follows the Plugin pattern / Initialization Registry pattern. This mechanism allows for registering and executing initialization functions in a coordinated way.
-
-```typescript
-// Example of using the initializer pool
-import { serviceInitializerPool } from 'src/core/utils/initializer-pool';
-
-// Register an initialization function
-serviceInitializerPool.register(async () => {
-  // Initialization logic here
-  console.log('Initializing service...');
-});
-
-// Execute all registered initialization functions
-await serviceInitializerPool.initializeAll();
-```
-
-Key features of the Initializer Pool:
-- **Registration**: Register initialization functions to be executed later
-- **Sequential Execution**: Execute all registered functions in sequence
-- **Singleton Instance**: A singleton instance (`serviceInitializerPool`) is available for application-wide use
-- **Custom Pools**: Create custom initializer pools using the `createInitializerPool()` function
-
-This mechanism is particularly useful for initializing services, setting up event listeners, or performing any other startup tasks that need to be coordinated across different parts of the application.
-
-### Business Modules
-
-All business or feature modules are organized under `src/modules`. Each module is self-contained and registers its own
-dependencies. This design improves clarity and allows modules to be later extracted as independent packages.
-
----
+The workspace design gives Core, each shared resource and each business module a package boundary. For example, the shared database client would live under `src/infrastructure/prisma/`. Module-local persistence code would stay beside the business capability that defines its port. In the workspace design, a module's implementation sits under its package's own `src/` and consumers use package exports. The workspace conversion, package build output and deployment work are tracked in the [workspace specification](https://github.com/RougeLi/WebServiceTemplate/issues/33).
 
 ## 🏗 System Architecture
 
-Web Service Template adopts a modular architecture that separates core framework functionalities from business logic.
+This diagram shows the **target source dependencies**. Each arrow points from an importer to a dependency.
 
-### Architecture Layers
+```mermaid
+flowchart TD
+    root["Application composition"] --> core["Core runtime"]
+    root --> infra["Shared infrastructure"]
+    root --> wiring["Business module wiring"]
+    infra --> core
+    wiring --> core
+    wiring --> usecase["Use case"]
+    wiring --> adapter["Module adapter"]
+    usecase --> port["Consumer-owned port"]
+    usecase --> domain["Domain behavior, when needed"]
+    adapter --> port
+    adapter --> infra
+```
 
-1. **Core Layer**
-    - Provides infrastructure: dependency injection, configuration management, server setup
-    - Handles cross-cutting concerns: logging, error handling, request context
+At runtime an HTTP request reaches the route, the controller converts the input and the use case calls the injected adapter through its port. An adapter backed by a database then calls the shared client. A compiled TypeScript interface adds no runtime call. A use case that only computes a result can call a pure domain function directly.
 
-2. **Module Layer**
-    - Contains independent business feature modules
-    - Each module is self-contained and can be developed independently
+For new or explicitly refactored business flows, the source dependency is `Use Case → Port ← Adapter`. Use cases and domain code stay independent of concrete adapters, ORM types and HTTP transport types.
 
-3. **Service Layer**
-    - Implements business logic
-    - Handles data transformation and business rules
-
-4. **Controller Layer**
-    - Processes HTTP requests and responses
-    - Validates input and formats output
-
-5. **Route Layer**
-    - Defines API endpoints
-    - Connects HTTP requests to controllers
-
----
+The stock application supports one active application per Node process. Its entry point explicitly registers `WebServerModule`. A business `IModule` declares dependencies, while an `IStartupModule` owns initialization, start and stop work. The precise boot order, initializer pool and current cleanup limits are documented in the [startup module guide](src/core/types/README.md).
 
 ## 💻 Development Guide
 
-### Available Script Commands
+Run scripts from the repository root. Their definitions are in [package.json](package.json).
 
-- **install:ci**: Install dependencies with a frozen lockfile (ideal for CI)
-  ```bash
-  pnpm run install:ci
-  ```
-
-- **install:dev**: Install dependencies without freezing the lockfile (for development)
-  ```bash
-  pnpm run install:dev
-  ```
-
-- **build**: Compile TypeScript files
-  ```bash
-  pnpm run build
-  ```
-
-- **start**: Run the development server with automatic recompilation
-  ```bash
-  pnpm start
-  ```
-
-- **lint**: Check code quality via linting
-  ```bash
-  pnpm run lint
-  ```
-
-- **lint:fix**: Automatically fix linting issues
-  ```bash
-  pnpm run lint:fix
-  ```
-
-- **unittest:coverage**: Run unit tests and generate a coverage report
-  ```bash
-  pnpm run unittest:coverage
-  ```
-
-- **prisma:generate**: Generate the Prisma Client into `src/generated/prisma`
-  (no database needed)
-  ```bash
-  pnpm run prisma:generate
-  ```
-
-- **prisma:migrate** / **prisma:deploy** / **prisma:reset**: `prisma migrate dev`,
-  `prisma migrate deploy` and `prisma migrate reset` (need `DATABASE_URL`)
-
-- **prisma:seed**: Run `prisma db seed` (needs `DATABASE_URL`)
-
-### Development Workflow
-
-1. **Live Reloading**  
-   During development, changes are automatically compiled and the server is restarted:
-   ```bash
-   pnpm start
-   ```
-
-2. **Code Quality**  
-   Ensures consistent code formatting and style:
-   ```bash
-   pnpm run lint:fix
-   ```
-
-3. **Testing**  
-   Run unit tests and generate coverage reports:
-   ```bash
-   pnpm run unittest:coverage
-   ```
-
-### Setting Up a Local PostgreSQL Database
-
-1. **Install [Docker](https://www.docker.com/)**
-
-2. **Navigate to the project's `.dev-app-projects` directory**
-   ```bash
-   cd .dev-app-projects
-   ```
-
-3. **Start the Docker containers**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Prepare the database**  
-   Set `DATABASE_URL` in `.env`, then run the steps explicitly. Prisma 7's
-   `migrate dev` does not generate the Client or run the seed for you:
-   ```bash
-   pnpm run prisma:migrate    # create/apply migrations
-   pnpm run prisma:generate   # regenerate the Client
-   pnpm run prisma:seed       # optional; the template has no seed data
-   ```
-   See [Database (Prisma 7)](#-database-prisma-7) for details.
-
----
+| Command | Purpose |
+| --- | --- |
+| `pnpm run install:ci` / `pnpm run install:dev` | Install with a frozen lockfile, or allow lockfile updates during development. |
+| `pnpm run prisma:generate` | Generate the client used by the TypeScript sources. |
+| `pnpm run build` / `pnpm start` | Build once, or run the TypeScript and server watchers after the initial build. |
+| `pnpm run lint` | Run source and spec type checks, Prettier checks and ESLint. |
+| `pnpm run lint:fix` | Apply the configured formatting and ESLint fixes. |
+| `pnpm run unittest` / `pnpm run unittest:coverage` | Run Jest with or without coverage reporting. |
+| `pnpm run prisma:migrate` | Create and apply a development migration against the configured database. |
+| `pnpm run prisma:reset` | Reset a disposable development database and reapply its migrations. This discards its data. |
 
 ## 🗄 Database (Prisma 7)
 
@@ -487,8 +226,7 @@ builds a `PrismaPg` adapter:
 
 - `DATABASE_URL` must be non-empty after trimming, parse as a URL, use the
   `postgresql:` or `postgres:` scheme and include a host (or a `host` query
-  parameter), and any `sslrootcert`, `sslcert` or `sslkey` must point to a
-  readable file. Otherwise a `DatabaseConfigurationError` is thrown whose
+  parameter), including the last value of a repeated host parameter. Otherwise a `DatabaseConfigurationError` is thrown whose
   message never contains the URL or the path. pg itself would silently fall
   back to `localhost:5432` for an empty URL, and would parse a value such as
   `not-a-url` relative to a dummy URL and connect to an unintended host.
@@ -498,8 +236,7 @@ builds a `PrismaPg` adapter:
 - Validation happens on resolve, not on import, registration or
   `EnvironmentService` construction, so unit tests and builds do not need
   `DATABASE_URL`.
-- Creating the Client opens no connection; the pool connects on the first
-  query.
+- At `connect()`, the service checks that any `sslrootcert`, `sslcert` or `sslkey` refers to a readable file before attempting the readiness query. Creating the Client opens no connection and reads no certificate files.
 
 | Setting | Prisma 6 | Prisma 7 + `PrismaPg` (this template) |
 | --- | --- | --- |
@@ -528,11 +265,17 @@ Client's model API target the same PostgreSQL schema. Raw SQL (`$queryRaw`,
 `search_path`, so unqualified table names resolve in `public` (or the role's
 default). When `?schema=` is set, `PrismaService` logs a warning unless the
 URL's `options` parameter sets a search path that starts with that schema.
-Either schema-qualify raw SQL
-or, when connecting directly to PostgreSQL, add
-`options=-c%20search_path%3D<schema>` to `DATABASE_URL`. The template does not
-add that startup parameter itself because connection poolers such as PgBouncer
-reject unknown startup parameters by default.
+When migrating SQL that used Prisma 6's URL schema, qualify the table explicitly.
+For a database URL with `?schema=tenant`, rewrite the query as follows.
+
+```sql
+-- Prisma 6
+SELECT * FROM "Log";
+-- Prisma 7
+SELECT * FROM tenant."Log";
+```
+
+The template leaves the PostgreSQL search path and startup options under the connection owner's control.
 
 `sslmode` is applied by pg: `sslmode=require` against a server without TLS
 fails with `TlsConnectionError`. pg currently treats `prefer`, `require` and
@@ -632,8 +375,7 @@ With Prisma 7.10.1 and `PrismaPg`:
 - Review TLS settings: add `sslmode` where Prisma 6's default `prefer` was
   relied on, replace Prisma 6 `sslcert=<CA>` with `sslrootcert=<CA>`, and use
   paths relative to the working directory.
-- With `?schema=`, schema-qualify raw SQL or set `search_path` through the
-  URL's `options` parameter; Prisma 7 applies `schema` to model queries only.
+- With `?schema=`, qualify tables in raw SQL (for example, `tenant."Log"`); Prisma 7 applies `schema` to model queries only.
 - `package.json#prisma` was removed; the seed command lives in
   `prisma.config.ts`. `build` now generates before compiling, `start`
   generates first, and `prisma:seed` was added.
@@ -643,114 +385,182 @@ With Prisma 7.10.1 and `PrismaPg`:
 
 ---
 
-## ⚙️ Environment Variables
+## ⚙ Environment Variables
 
-This project uses an `.env` file to configure environment-specific settings. Below are the main environment variables:
+[`setupApp`](src/core/app/setup-app.ts) loads the local environment. [EnvironmentService](src/core/services/environment.service.ts) parses it with the [environment schema](src/core/config/environment.schema.ts) and exposes typed values through DI. The application receives its database target from the same environment service. The CLI loads its own [configuration](prisma.config.ts).
 
-| Variable Name                    | Description                                                         | Default Value      |
-|----------------------------------|---------------------------------------------------------------------|--------------------|
-| `APP_NAME`                       | Application name for identification across services                 | WebServiceTemplate |
-| `APP_ENV`                        | Application runtime environment                                     | development        |
-| `PORT`                           | Port number where the service runs                                  | 3000               |
-| `DATABASE_URL`                   | PostgreSQL URL for the Prisma CLI and runtime (`postgresql://...`)  | none (required to use the database) |
-| `DATABASE_POOL_MAX`              | Maximum pooled connections (positive integer)                       | 10                 |
-| `DATABASE_CONNECTION_TIMEOUT_MS` | Connection / pool wait timeout in ms (positive integer)             | 10000              |
-| `FORCE_PRISMA_QUERY_LOG`         | Log Prisma queries at `info` outside development                    | false              |
+| Variable | Schema default when unset | Value in the example file |
+| --- | --- | --- |
+| `APP_NAME` | `ServiceTemplate` | `WebServiceTemplate` |
+| `APP_ENV` | `production` | `development` |
+| `PORT` | `3000` | `3000` |
+| `DATABASE_URL` | Supply a PostgreSQL URL for database operations | Local development database |
+| `DATABASE_POOL_MAX` | `10` connections | Optional override |
+| `DATABASE_CONNECTION_TIMEOUT_MS` | `10000` ms | Optional override |
 
-For complete configuration, please refer to the `.env.example` file.
-
----
+See [.env.example](.env.example) for the local settings. When adding an application setting, update its schema, typed transform and relevant example together.
 
 ## 🔧 Module Setup Example
 
-Business modules reside in `src/modules`. Here's an example using a "Hello" module:
+**Illustrative module.** The following file listings show how to add a catalog in the current single-package layout. The checkout ships with an empty registry. Each listing names its intended file. A client requests `GET /catalog/:id`. The use case returns only published entries, and the HTTP controller maps a missing or unpublished entry to 404.
 
-### Module Structure
+| Location under `src/modules/catalog/` | Responsibility |
+| --- | --- |
+| `routes/`, `controllers/`, `dto/` | HTTP binding, access and schema, input/output mapping, and transport types. |
+| `use-cases/find-published-entry/` | The visibility decision and the reader port consumed by this action. |
+| `adapters/` | An implementation of the reader. This example uses in-memory records so it requires no new database table. |
+| `domain/` or `constants/` | Optional. Introduce a named policy, value or constant when it has a responsibility of its own. |
+| `catalog.module.ts`, `index.ts` | Bind dependencies and export the public module entry point. |
 
-```
-src/
-  ├── modules/
-  │   ├── hello/
-  │   │   ├── constants/      # Module-specific constants (e.g., routes, injection tokens)
-  │   │   ├── controllers/    # HTTP request handlers
-  │   │   ├── dto/            # Request/response schemas
-  │   │   ├── model/          # Data models
-  │   │   ├── routes/         # Route definitions
-  │   │   ├── services/       # Business logic
-  │   │   ├── spec/           # Unit tests
-  │   │   ├── types/          # Type definitions
-  │   │   ├── hello.module.ts # Module configuration & DI registration
-  │   │   └── index.ts        # Module exports
-  │   └── index.ts            # Aggregated module registration for the application
-```
-
-### Module Registration
-
-The aggregated module registration is defined in `src/modules/index.ts`:
+### Business decision and port
 
 ```typescript
-// src/modules/index.ts
-import { IModule } from 'src/core/types';
-import { HelloModule } from './hello';
+// src/modules/catalog/use-cases/find-published-entry/entry-reader.port.ts
+export interface CatalogEntry {
+  readonly id: string;
+  readonly title: string;
+  readonly published: boolean;
+}
 
-const modules: IModule[] = [
-  new HelloModule(), // Register the Hello module
+export interface EntryReader {
+  findById(id: string): Promise<CatalogEntry | undefined>;
+}
+```
+
+```typescript
+// src/modules/catalog/use-cases/find-published-entry/find-published-entry.use-case.ts
+import type { EntryReader } from './entry-reader.port';
+
+export class FindPublishedEntryUseCase {
+  constructor(private readonly entryReader: EntryReader) {}
+
+  async execute(id: string) {
+    const entry = await this.entryReader.findById(id);
+    if (entry?.published) {
+      return { id: entry.id, title: entry.title };
+    }
+    return undefined;
+  }
+}
+```
+
+The port describes the operation in catalog terms. A PostgreSQL-backed adapter can implement the same contract and map its ORM record to `CatalogEntry`. A use case may consume several ports. A decision about transactions is needed when a required atomic update or consistency guarantee cannot be expressed by their existing contracts.
+
+```typescript
+// src/modules/catalog/adapters/in-memory-entry-reader.adapter.ts
+import type {
+  CatalogEntry,
+  EntryReader,
+} from '../use-cases/find-published-entry/entry-reader.port';
+
+const entries: readonly CatalogEntry[] = [
+  { id: 'guide', title: 'Field guide', published: true },
+  { id: 'draft', title: 'Working draft', published: false },
 ];
 
-export default modules;
+export class InMemoryEntryReader implements EntryReader {
+  async findById(id: string) {
+    return entries.find((entry) => entry.id === id);
+  }
+}
 ```
 
-### Example: Hello Module
-
-The Hello module demonstrates how to register its own dependencies:
+### HTTP boundary
 
 ```typescript
-// src/modules/hello/hello.module.ts
-import { BaseModule } from 'src/core/utils';
-import { InjectionTokens } from './constants/injection-tokens';
-import { HelloRoute } from './routes/hello.route';
-import { HelloController } from './controllers/hello.controller';
-import { HelloService } from './services/hello.service';
+// src/modules/catalog/dto/entry-params.dto.ts
+import { type Static, Type } from '@sinclair/typebox';
 
-export class HelloModule extends BaseModule {
-  registerDependencies() {
+export const entryParamsSchema = Type.Object({ id: Type.String() });
+export type EntryParams = Static<typeof entryParamsSchema>;
+```
+
+```typescript
+// src/modules/catalog/controllers/catalog.controller.ts
+import { NotFoundError } from 'src/core/server';
+import type { EntryReader } from '../use-cases/find-published-entry/entry-reader.port';
+import { FindPublishedEntryUseCase } from '../use-cases/find-published-entry/find-published-entry.use-case';
+
+export class CatalogController {
+  private readonly findPublishedEntry: FindPublishedEntryUseCase;
+
+  constructor(catalogEntryReader: EntryReader) {
+    this.findPublishedEntry = new FindPublishedEntryUseCase(catalogEntryReader);
+  }
+
+  async find(id: string) {
+    const entry = await this.findPublishedEntry.execute(id);
+    if (entry === undefined) {
+      throw new NotFoundError('Catalog entry not found');
+    }
+    return entry;
+  }
+}
+```
+
+```typescript
+// src/modules/catalog/routes/catalog.route.ts
+import type { WebServer } from 'src/core/types';
+import { BaseRoute } from 'src/core/utils';
+import type { CatalogController } from '../controllers/catalog.controller';
+import { type EntryParams, entryParamsSchema } from '../dto/entry-params.dto';
+
+export class CatalogRoute extends BaseRoute {
+  constructor(private readonly catalogController: CatalogController) {
+    super();
+  }
+
+  registerRoutes(server: WebServer): void {
+    server.get<{ Params: EntryParams }>(
+      '/catalog/:id',
+      { schema: { params: entryParamsSchema } },
+      (request) => this.catalogController.find(request.params.id),
+    );
+  }
+}
+```
+
+### Module registration
+
+The route registry resolves `catalogRoute`. Awilix `CLASSIC` injection uses constructor parameter names as tokens. The route receives `catalogController`, and the controller receives `catalogEntryReader`. The module selects one reader for all catalog requests. The controller is the sole consumer of the use case and constructs it directly with that reader. See the [DI and composition guidelines](AGENTS.md#di-與直接組裝).
+
+```typescript
+// src/modules/catalog/catalog.module.ts
+import { BaseModule } from 'src/core/utils';
+import { InMemoryEntryReader } from './adapters/in-memory-entry-reader.adapter';
+import { CatalogController } from './controllers/catalog.controller';
+import { CatalogRoute } from './routes/catalog.route';
+
+export class CatalogModule extends BaseModule {
+  registerDependencies(): void {
     this.registerSingletons([
-      [InjectionTokens.HELLO_ROUTE, HelloRoute],
-      [InjectionTokens.HELLO_CONTROLLER, HelloController],
-      [InjectionTokens.HELLO_SERVICE, HelloService],
+      ['catalogEntryReader', InMemoryEntryReader],
+      ['catalogController', CatalogController],
+      ['catalogRoute', CatalogRoute],
     ]);
   }
 }
 ```
 
+```typescript
+// src/modules/catalog/index.ts
+export { CatalogModule } from './catalog.module';
+```
+
+```typescript
+// src/modules/index.ts (registry after opting into the example)
+import type { IModule } from 'src/core/types';
+import { CatalogModule } from './catalog';
+
+const modules: IModule[] = [new CatalogModule()];
+export default modules;
+```
+
+With these illustrative files in place, `GET /catalog/guide` returns the published ID and title. Both `GET /catalog/draft` and an unknown ID return 404. Before adding the module, the stock welcome route remains available at `/`.
+
 ### Dependency Registration Helpers
 
-Declare dependencies inside `registerDependencies()` using the helpers below.
-`registerDependency()` registers a singleton when its resolver mode is omitted
-or explicitly `undefined`:
-
-```typescript
-this.registerDependency(InjectionTokens.HELLO_SERVICE, HelloService);
-```
-
-Use `registerDependenciesByItems()` when one list needs mixed resolver modes.
-Items without a third value still default to singleton:
-
-```typescript
-import { InjectionResolverMode } from 'src/core/constants';
-
-this.registerDependenciesByItems([
-  [InjectionTokens.DEFAULT_SERVICE, DefaultService],
-  [
-    InjectionTokens.REQUEST_SERVICE,
-    RequestService,
-    InjectionResolverMode.SCOPED,
-  ],
-  [InjectionTokens.WORKER, Worker, InjectionResolverMode.TRANSIENT],
-]);
-```
-
-Lifetime-specific helpers are available for single and batch registrations:
+Declare dependencies inside `registerDependencies()`. `registerDependency(token, classType)` defaults to singleton when its mode is omitted or `undefined`. `registerDependenciesByItems(items)` accepts readonly tuples of a token, class and optional mode. This allows mixed modes in one batch.
 
 | Lifetime  | Single registration                   | Batch registration                  |
 | --------- | ------------------------------------- | ----------------------------------- |
@@ -764,123 +574,40 @@ treat empty arrays as chainable no-ops.
 Registering a class that extends `BaseRoute` through any helper also adds its
 token to route registration automatically.
 
-`PROXY` and `CLASSIC` continue to use the existing registration factory
-semantics. They do not combine automatically with the singleton default and
-retain the Awilix default transient lifetime.
+The `PROXY` and `CLASSIC` presets select injection style and retain the Awilix default transient lifetime. The current [registration factory](src/core/utils/di-registration-factory.ts) applies one preset per call. The [DI design discussion](https://github.com/RougeLi/WebServiceTemplate/issues/25) tracks how to model lifetime and injection style independently.
 
 ### Dependency Collection Lifecycle
 
 Each `getRegisterDependencies()` call starts from empty state and runs
 `registerDependencies()` again. Declare the same tokens, resolver modes, and
-order on every call; changing the dependency graph based on invocation count
-is unsupported. Resolver objects may be recreated on each collection.
-
-```typescript
-const module = new HelloModule();
-const first = module.getRegisterDependencies();
-const second = module.getRegisterDependencies();
-// Both contain one complete set of the Hello module's declarations.
-// Neither collection is extended by later calls.
-
-const modules = [module];
-const firstApp = await setupApp(globalDIConfigs, modules);
-const secondApp = await setupApp(globalDIConfigs, modules);
-// Each application gets a new container and its own singleton instances.
-```
+order on every call. Resolver objects may be recreated on each collection.
 
 The returned collection and its registration tuples are readonly in TypeScript.
-`BaseModule` keeps its collection private and returns a defensive array copy;
-caller array mutations cannot affect the next collection. Runtime freezing and
-deep cloning of Awilix resolvers are not part of this contract.
+`BaseModule` keeps its collection private and returns a defensive array copy.
+A failed collection propagates the original error and discards partial dependency registrations. A retry rebuilds the entire declaration. Runtime freezing and deep cloning of resolvers are outside this contract.
 
-If registration throws, the original error propagates and partial dependency
-registrations are discarded. A retry rebuilds the entire declaration from
-empty state.
-
-Route tokens remain in the existing process-wide `Set`. Rebuilding may register
-the same route token again, and the `Set` deduplicates it without clearing tokens
-from other modules. A failed collection does not roll back route tokens; retrying
-the same deterministic declaration completes the set. Reusing the same module
-instances is supported; isolating route registries for different application
-compositions is outside this contract.
-
----
+Route tokens remain in the existing process-wide `Set`. Rebuilding may register the same route token again, and the set deduplicates it. A failed collection leaves any already registered route tokens in the set. Repeated `setupApp()` calls create fresh containers, but the process-wide route registry is shared. The [module tests](src/core/utils/spec/base.module.spec.ts) and [application wiring tests](src/core/app/spec/setup-app.spec.ts) cover these behaviors.
 
 ## 📦 Deployment
 
-### Building the Application
-
-`build` runs `prisma generate` and then `tsc`, so `build/` contains the
-compiled Prisma Client (`build/src/generated/prisma/client.js`).
+Generate the Prisma client and build before packaging the runtime. Supply the compiled `build/` tree, runtime dependencies and generated client, and set the runtime environment for the deployment. In a POSIX shell, run the compiled HTTP entry point from the package root.
 
 ```bash
-  pnpm run build
+NODE_PATH=./build node build/index.js
 ```
 
-Run the compiled service with production dependencies only:
-
-```bash
-  pnpm install --prod --frozen-lockfile
-  NODE_PATH=./build node build/index.js
-```
-
-### Database Migration
-
-To deploy database changes in a production environment (requires the Prisma
-CLI from a full install and an explicitly set `DATABASE_URL`):
-
-```bash
-  pnpm run prisma:deploy
-```
-
----
+Apply the project's migrations using `pnpm run prisma:deploy` as an authorized release step in an environment with the Prisma CLI. The local development watcher is `pnpm start`.
 
 ## ❓ FAQ
 
-### How to add a new module?
+### How do I provide a cron job or worker?
 
-1. Create a new module directory under `src/modules`
-2. Implement necessary components (constants, controllers, services, etc.)
-3. Create a module class that extends `BaseModule`
-4. Register the new module in `src/modules/index.ts`
+Implement `IStartupModule` for your resource and register the instance in the composition root. The built-in startup module is `WebServerModule`. See the [startup extension points](src/core/types/README.md).
 
-### How to configure Swagger documentation?
+### Where do I put request validation and error handling?
 
-Swagger documentation is automatically generated through the Fastify Swagger plugin.  
-You can use TypeBox in your
-controllers to define request and response schemas.
+Attach the transport schema to the route. Express a business outcome in the use case, then map it at the HTTP boundary. The [Fastify setup](src/core/server/bootstrap/web-server.ts) formats known HTTP errors and sends an internal error response for unrecognized failures.
 
-### How to handle database migrations?
+### What if a technical component is already called a service or model?
 
-Use Prisma CLI commands to manage database migrations:
-
-```bash
-
-# Create a new migration
-pnpm run prisma:migrate
-
-# Deploy migrations to production environment
-pnpm run prisma:deploy
-
-# Reset a disposable development database (never production)
-pnpm run prisma:reset
-
-# Regenerate the Client and seed explicitly afterwards
-pnpm run prisma:generate
-pnpm run prisma:seed
-
-```
-
-### How to add new environment variables?
-
-1. Add new variables to the `.env.example` file
-2. Update the environment configuration schema in `src/core/config`
-3. Use environment variables through dependency injection
-
-### How to handle errors?
-
-The framework provides a centralized error handling mechanism. You can:
-
-1. Create custom error classes
-2. Throw these errors in controllers or services
-3. The global error handler will automatically catch and format responses
+Names such as `PrismaService`, an ORM model or a domain service can describe a real responsibility. In a new business module, start with the action, its dependencies and the actual transport or storage boundary. The [engineering guide](AGENTS.md) defines the conventions for implementation and review.
