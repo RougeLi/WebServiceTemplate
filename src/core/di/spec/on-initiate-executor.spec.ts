@@ -133,7 +133,11 @@ describe('executeOnInitiateHooks', () => {
       expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
     });
 
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+
     it.each([
+      ['a revoked proxy', revoked.proxy],
       ['undefined', undefined],
       ['null', null],
       ['a string', 'plain failure'],

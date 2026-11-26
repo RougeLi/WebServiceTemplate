@@ -93,7 +93,7 @@ At runtime an HTTP request reaches the route, the controller converts the input 
 
 For new or explicitly refactored business flows, the source dependency is `Use Case → Port ← Adapter`. Use cases and domain code stay independent of concrete adapters, ORM types and HTTP transport types.
 
-The stock application supports one active application per Node process. Its entry point explicitly registers `WebServerModule`. A business `IModule` declares dependencies, while an `IStartupModule` owns initialization, start and stop work. The precise boot order, initializer pool and current cleanup limits are documented in the [startup module guide](src/core/types/README.md).
+The stock application supports one active application per Node process. Its entry point explicitly registers `WebServerModule`. A business `IModule` declares dependencies, while an `IStartupModule` owns initialization, start and stop work. The required Prisma hook waits for a successful `SELECT 1` before HTTP listen. Fastify close triggers the singleton disposer, including when startup fails after the HTTP module has initialized. The precise boot order, initializer pool and non-HTTP cleanup limits are documented in the [startup module guide](src/core/types/README.md).
 
 ## 💻 Development Guide
 

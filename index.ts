@@ -18,7 +18,6 @@ import modules from 'src/modules';
     // Initialize the application and all registered modules
     await app.initialize();
 
-    // Initialize dependent resource services for the ticketing system
     await serviceInitializerPool.initializeAll();
 
     // Start the application and begin accepting requests

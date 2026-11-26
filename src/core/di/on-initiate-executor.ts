@@ -6,8 +6,8 @@ function describeRejection(value: unknown): string {
       ? `${value.message}\n        ${value.stack ?? ''}`
       : String(value);
   } catch {
-    // Values without a usable string conversion (e.g. Object.create(null)).
-    return Object.prototype.toString.call(value);
+    // Even checking the type can throw for a revoked proxy.
+    return '[unprintable rejection]';
   }
 }
 
