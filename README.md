@@ -572,23 +572,52 @@ bounded by `DATABASE_CONNECTION_TIMEOUT_MS`. Log messages contain the
 classification and the driver message (host, port or user name), never the
 connection string or password.
 
-Startup currently keeps the existing hook contract: a failing `onInitiate`
-hook, including the Prisma connect, is logged and startup continues.
-Because the fail-fast errors above now stop the retry loop instead of retrying
-forever (Prisma 6 rethrew only `P1000` / authentication errors), a missing or
-invalid `DATABASE_URL`, a missing database, denied access or a TLS error is
-logged and the HTTP server still starts, where Prisma 6 kept retrying and
-never reached `app.start()`. Making the Prisma hook required, so these errors
-stop startup with a non-zero exit, and releasing the pool on shutdown are
-tracked in [#35](https://github.com/RougeLi/WebServiceTemplate/issues/35).
+### Startup and shutdown
+
+| Situation | Behaviour |
+| --- | --- |
+| Import, `prisma generate`, `build` | No database connection |
+| Normal `initialize()` | Startup modules initialize, then the global `onInitiate` hooks run; the Prisma hook succeeds only after `SELECT 1`, and only then does `start()` begin accepting HTTP requests |
+| Fail-fast error (missing/invalid `DATABASE_URL`, bad credentials, missing database, access denied, TLS or certificate error) | `initialize()` rejects, HTTP never starts, `index.ts` cleans up and exits with code 1 |
+| Database temporarily unavailable | The Prisma hook keeps retrying with backoff; HTTP starts once the database answers |
+| `app.stop()` / Fastify close (also on SIGINT/SIGTERM through `close-with-grace`) | The container is disposed and the Prisma Client and its pool are released once |
+| A request completes | The request scope is disposed; the application singleton stays open |
+| `initialize()` or `start()` fails | `index.ts` logs the original error, calls `app.stop()` to release what was created, logs any cleanup error separately, and exits with code 1 |
+
+Two opt-in fields of `GlobalContainerConfig` implement this:
+
+- `required: true` makes an `onInitiate` failure reject `Application.initialize()`.
+  All hooks still run concurrently, the rejection happens only after every
+  hook has settled, and if several required hooks fail the first original
+  error (in the order the failures occur) is rethrown. Hooks without the flag
+  keep the previous contract: the failure is logged and initialization
+  continues. Only the Prisma hook is marked required.
+- `onDispose(instance)` becomes the registration's Awilix `.disposer()`.
+  `container.dispose()` (Fastify close with `disposeOnClose`) calls it for
+  singleton or scoped instances that were resolved; request-scope disposal does
+  not touch root singletons, and an instance that was never resolved is never
+  created or disposed. The Prisma registration's disposer calls
+  `PrismaService.disconnect()` and is the only owner of the shared Client and
+  pool; `Application.stop()` does not dispose the container itself.
+
+Known limitations (general application lifecycle work is tracked in [#32](https://github.com/RougeLi/WebServiceTemplate/issues/32)):
+
+- An application without `WebServerModule` has no trigger that disposes the
+  container, so the Prisma pool is not released by `app.stop()`.
+- A query after `$disconnect()` silently creates a new pool, and resolving
+  `ContainerTokens.PRISMA` after the container was disposed creates a new
+  Client.
+- One process runs one active application; restarting an application in the
+  same process is not supported.
 
 ### Connection ownership
 
 - Each application has one shared Client and pool (`ContainerTokens.PRISMA`,
   singleton). Request scopes resolve the same instance; nothing is created per
   request.
-- `$disconnect()` closes the adapter's pool, and calling it twice is safe. A
-  query after `$disconnect()` silently creates a new pool.
+- The registration's disposer releases the Client and pool when the
+  container is disposed. `$disconnect()` closes the adapter's pool, and calling
+  it twice is safe.
 - CLI commands, seeds and scripts create their own Client and must
   `$disconnect()` it in `finally`; they never take over the application's
   instance.
