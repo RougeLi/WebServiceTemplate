@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { checkDatabaseCertificateFiles } from 'src/core/config/postgres-options';
+import { checkDatabaseTlsOptions } from 'src/core/config/postgres-options';
 import { IDBService } from 'src/core/types';
 import { DbUtils } from 'src/core/utils';
 import { PrismaClient } from 'src/generated/prisma/client';
@@ -34,7 +34,7 @@ export default class PrismaService extends PrismaClient implements IDBService {
       for (const warning of warnings) {
         logger.warn(warning);
       }
-      checkDatabaseCertificateFiles(poolConfig.connectionString);
+      checkDatabaseTlsOptions(poolConfig.connectionString);
       await connect();
     };
     this.disconnect = getDisconnectMethod(logger, this);

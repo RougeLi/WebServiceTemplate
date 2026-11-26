@@ -54,8 +54,7 @@ const IGNORED_PRISMA6_URL_PARAMETERS = [
 export function parseDatabaseUrl(
   databaseUrl: string | undefined,
 ): ParsedDatabaseUrl {
-  const { connectionString, url } = parseDatabaseTarget(databaseUrl);
-  const schema = getLastSearchParam(url, 'schema')?.trim() || undefined;
+  const { connectionString, url, schema } = parseDatabaseTarget(databaseUrl);
   const ignoredParameters = IGNORED_PRISMA6_URL_PARAMETERS.filter((name) =>
     url.searchParams.has(name),
   );
@@ -68,9 +67,39 @@ export function parseDatabaseUrl(
   };
 }
 
-/** Checks the files pg will read, at the explicit connection boundary. */
-export function checkDatabaseCertificateFiles(connectionString: string): void {
+/** Checks pg TLS options and files at the explicit connection boundary. */
+export function checkDatabaseTlsOptions(connectionString: string): void {
   const { url } = parseDatabaseTarget(connectionString);
+  const mode = getLastSearchParam(url, 'sslmode');
+  const negotiation = getLastSearchParam(url, 'sslnegotiation');
+  const ssl = getLastSearchParam(url, 'ssl');
+  if (negotiation && !['postgres', 'direct'].includes(negotiation)) {
+    throw new DatabaseConfigurationError(
+      'DATABASE_URL sslnegotiation must be postgres or direct.',
+    );
+  }
+  if (
+    negotiation === 'direct' &&
+    (mode === 'disable' ||
+      (!mode &&
+        ssl === '0' &&
+        !CERTIFICATE_URL_PARAMETERS.some((name) =>
+          getLastSearchParam(url, name),
+        )))
+  ) {
+    throw new DatabaseConfigurationError(
+      'DATABASE_URL direct SSL negotiation requires TLS.',
+    );
+  }
+  if (
+    mode === 'verify-ca' &&
+    getLastSearchParam(url, 'uselibpqcompat') === 'true' &&
+    !getLastSearchParam(url, 'sslrootcert')
+  ) {
+    throw new DatabaseConfigurationError(
+      'DATABASE_URL sslmode=verify-ca with libpq compatibility requires sslrootcert.',
+    );
+  }
   // pg reads these files while connecting and would fail every retry with
   // ENOENT, an error without a driver adapter kind; reject them up front.
   for (const name of CERTIFICATE_URL_PARAMETERS) {

@@ -40,6 +40,7 @@ export class DatabaseConfigurationError extends Error {
 export function parseDatabaseTarget(databaseUrl: string | undefined): {
   connectionString: string;
   url: URL;
+  schema?: string;
 } {
   const connectionString = databaseUrl?.trim();
   if (!connectionString) {
@@ -47,8 +48,13 @@ export function parseDatabaseTarget(databaseUrl: string | undefined): {
   }
 
   let url: URL;
+  let schema: string | undefined;
   try {
-    url = new URL(toPgParseInput(connectionString));
+    const target = new URL(connectionString);
+    // Prisma interprets its own schema parameter before pg normalizes escapes.
+    schema = getLastSearchParam(target, 'schema');
+    const pgInput = toPgParseInput(connectionString);
+    url = pgInput === connectionString ? target : new URL(pgInput);
     // WHATWG URL accepts malformed UTF-8 escapes that pg later decodes.
     // Query parameters override the matching authority components in pg.
     for (const [name, component] of [
@@ -75,5 +81,11 @@ export function parseDatabaseTarget(databaseUrl: string | undefined): {
     throw new DatabaseConfigurationError('DATABASE_URL must include a host.');
   }
 
-  return { connectionString, url };
+  if (schema === '') {
+    throw new DatabaseConfigurationError(
+      'DATABASE_URL schema must not be empty.',
+    );
+  }
+
+  return { connectionString, url, schema };
 }
