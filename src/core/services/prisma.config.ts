@@ -1,12 +1,24 @@
+import { parseDatabaseUrl } from 'src/core/config/postgres-options';
 import { Environment } from 'src/core/constants';
 import {
   AppConfigType,
+  DatabaseConnectionOptions,
   FormatQueryEventOptions,
   PrismaClientOptions,
   PrismaErrorFormat,
   PrismaLogLevels,
+  PrismaPgPoolConfig,
 } from 'src/core/types';
 import EnvironmentService from './environment.service';
+
+/** pg default pool size (Prisma 6 used CPU count × 2 + 1). */
+export const DEFAULT_DATABASE_POOL_MAX = 10;
+
+/**
+ * Maximum time to establish a connection or wait for a free pool slot.
+ * pg's own default (0) never times out.
+ */
+export const DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS = 10000;
 
 export default class PrismaConfig {
   public readonly appEnv: Environment;
@@ -14,6 +26,8 @@ export default class PrismaConfig {
   public readonly errorFormat: PrismaErrorFormat;
   public readonly prismaClientOptions: PrismaClientOptions;
   public readonly formatQueryEventOptions: FormatQueryEventOptions;
+  public readonly databasePoolMax: number;
+  public readonly databaseConnectionTimeoutMs: number;
 
   constructor(private readonly environment: EnvironmentService) {
     const config = this.environment.getConfig();
@@ -29,6 +43,10 @@ export default class PrismaConfig {
       errorFormat: this.errorFormat,
     };
     this.formatQueryEventOptions = this.getFormatQueryEventOptions(config);
+    this.databasePoolMax = config.databasePoolMax ?? DEFAULT_DATABASE_POOL_MAX;
+    this.databaseConnectionTimeoutMs =
+      config.databaseConnectionTimeoutMs ??
+      DEFAULT_DATABASE_CONNECTION_TIMEOUT_MS;
   }
 
   getLogLevels({
@@ -65,6 +83,55 @@ export default class PrismaConfig {
       maxStrLen,
       enableJsonParse,
       delimiter,
+    };
+  }
+
+  /**
+   * Builds the `PrismaPg` pool and adapter options from DATABASE_URL.
+   *
+   * DATABASE_URL is read and validated here, when the Prisma Client is about
+   * to be created, not when this config is constructed, so code paths that
+   * never resolve the Client (unit tests, build) do not need it.
+   *
+   * `?schema=` is passed as the adapter's `schema` option, which qualifies
+   * model queries. Raw SQL keeps the connection's `search_path` (Prisma 6 ran
+   * `SET search_path`), so a warning is logged unless the URL's `options`
+   * parameter sets the search_path itself.
+   *
+   * @throws DatabaseConfigurationError when DATABASE_URL is missing or invalid.
+   */
+  getDatabaseConnectionOptions(
+    databaseUrl: string | undefined = this.environment.getDatabaseUrl(),
+  ): DatabaseConnectionOptions {
+    const { connectionString, schema, ignoredParameters, optionsSearchPath } =
+      parseDatabaseUrl(databaseUrl);
+    const warnings: string[] = [];
+
+    const poolConfig: PrismaPgPoolConfig = {
+      connectionString,
+      max: this.databasePoolMax,
+      connectionTimeoutMillis: this.databaseConnectionTimeoutMs,
+    };
+
+    if (schema && optionsSearchPath !== schema) {
+      warnings.push(
+        'DATABASE_URL `schema` applies to model queries only; raw SQL ($queryRaw, $executeRaw) uses the connection search_path. ' +
+          'Qualify table names in raw SQL when migrating queries that relied on the Prisma 6 URL schema.',
+      );
+    }
+
+    if (ignoredParameters.length > 0) {
+      warnings.push(
+        `DATABASE_URL contains Prisma 6 parameters that the PostgreSQL driver adapter ignores: ${ignoredParameters.join(', ')}. ` +
+          'Use DATABASE_POOL_MAX and DATABASE_CONNECTION_TIMEOUT_MS to configure the pool.',
+      );
+    }
+
+    return {
+      poolConfig,
+      adapterOptions: schema ? { schema } : {},
+      ignoredUrlParameters: ignoredParameters,
+      warnings,
     };
   }
 }

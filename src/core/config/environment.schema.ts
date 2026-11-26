@@ -10,6 +10,22 @@ const booleanOptionalDefaultFalse = z.optional(
     .pipe(z.boolean()),
 );
 
+// Largest delay Node.js timers accept; larger values fire after 1 ms.
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
+const positiveIntegerStringOptional = (max: number) =>
+  z.optional(
+    z
+      .string()
+      .regex(/^[1-9]\d*$/, 'Expected a positive integer')
+      .refine((value) => Number(value) <= max, {
+        message: `Expected a positive integer no greater than ${max}`,
+      }),
+  );
+
+const toOptionalInteger = (value: string | undefined): number | undefined =>
+  value === undefined ? undefined : Number.parseInt(value, 10);
+
 export const EnvironmentSchema = z.object({
   APP_NAME: z.string().default('ServiceTemplate'),
   APP_ENV: z.nativeEnum(Environment).default(Environment.PRODUCTION),
@@ -20,6 +36,10 @@ export const EnvironmentSchema = z.object({
   PRISMA_QUERY_MAX_STR_LEN: z.optional(z.number()),
   PRISMA_QUERY_ENABLE_JSON_PARSE: booleanOptionalDefaultFalse,
   PRISMA_QUERY_DELIMITER: z.optional(z.string()),
+  DATABASE_URL: z.string().optional(),
+  DATABASE_POOL_MAX: positiveIntegerStringOptional(Number.MAX_SAFE_INTEGER),
+  DATABASE_CONNECTION_TIMEOUT_MS:
+    positiveIntegerStringOptional(MAX_TIMER_DELAY_MS),
 });
 
 export const transformEnvironment = (
@@ -34,4 +54,8 @@ export const transformEnvironment = (
   prismaQueryMaxStrLen: environment.PRISMA_QUERY_MAX_STR_LEN,
   prismaQueryEnableJsonParse: environment.PRISMA_QUERY_ENABLE_JSON_PARSE,
   prismaQueryDelimiter: environment.PRISMA_QUERY_DELIMITER,
+  databasePoolMax: toOptionalInteger(environment.DATABASE_POOL_MAX),
+  databaseConnectionTimeoutMs: toOptionalInteger(
+    environment.DATABASE_CONNECTION_TIMEOUT_MS,
+  ),
 });

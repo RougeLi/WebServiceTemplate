@@ -6,12 +6,20 @@ export type PrismaQueryEvent = {
   timestamp: Date;
   query: string;
   params: string;
+  /**
+   * Query duration in milliseconds. With Prisma 7 driver adapters this is a
+   * floating-point value (Prisma 6 reported whole milliseconds).
+   */
   duration: number;
   target: string;
 };
 
 export type PrismaErrorFormat = 'pretty' | 'colorless' | 'minimal';
 
+/**
+ * Logging and error-format options shared by every Prisma Client instance.
+ * The driver adapter is added by PrismaService when the Client is created.
+ */
 export type PrismaClientOptions = {
   log: Array<{ emit: 'event'; level: LogLevel }>;
   errorFormat: PrismaErrorFormat;
@@ -26,6 +34,10 @@ export type CustomPrismaClient = {
   ): void;
   $connect(): Promise<void>;
   $disconnect(): Promise<void>;
+  $queryRaw<T = unknown>(
+    query: TemplateStringsArray,
+    ...values: unknown[]
+  ): PromiseLike<T>;
 };
 
 export type FormatQueryEventOptions = {
@@ -33,4 +45,43 @@ export type FormatQueryEventOptions = {
   maxStrLen?: number;
   enableJsonParse?: boolean;
   delimiter?: string;
+};
+
+/**
+ * Result of validating DATABASE_URL. Never log `connectionString`: it may
+ * contain credentials.
+ */
+export type ParsedDatabaseUrl = {
+  connectionString: string;
+  /** Value of the `?schema=` parameter, if any. */
+  schema?: string;
+  /** Prisma 6 URL parameters that the pg driver does not apply. */
+  ignoredParameters: string[];
+  /**
+   * First schema of the `search_path` that the URL's pg `options` parameter
+   * sets (unquoted), if any.
+   */
+  optionsSearchPath?: string;
+};
+
+/**
+ * Pool configuration passed to `PrismaPg`. The adapter creates and owns the
+ * pg pool; `$disconnect()` closes it.
+ */
+export type PrismaPgPoolConfig = {
+  connectionString: string;
+  max: number;
+  connectionTimeoutMillis: number;
+};
+
+export type PrismaPgAdapterOptions = {
+  schema?: string;
+};
+
+export type DatabaseConnectionOptions = {
+  poolConfig: PrismaPgPoolConfig;
+  adapterOptions: PrismaPgAdapterOptions;
+  ignoredUrlParameters: string[];
+  /** Messages to log at warn level; they never contain the URL. */
+  warnings: string[];
 };
